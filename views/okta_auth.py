@@ -86,14 +86,47 @@ def callback():
         flash(f"Error retrieving user profile: {str(e)}", 'error')
         return redirect(url_for('auth.login'))
         
-    # Extract user details from ID token claims
-    email = claims.get('email', '')
-    first_name = claims.get('given_name', '')
-    last_name = claims.get('family_name', '')
-    # Combine first and last name
-    full_name = f"{first_name} {last_name}".strip()
-    if not full_name:
-        full_name = email.split('@')[0]  # Use part of email as fallback
+    # Log available user information for debugging
+    logger.info(f"User info keys from Okta: {list(user_info.keys())}")
+    
+    # Extract user details - prioritize user_info from userinfo endpoint over ID token claims
+    # Email should be consistent in both places
+    email = user_info.get('email', claims.get('email', ''))
+    
+    # Try to get the full name from various possible fields in the Okta user profile
+    full_name = None
+    
+    # Option 1: Use name field if available (most reliable)
+    if 'name' in user_info and user_info['name'].strip():
+        full_name = user_info['name']
+        logger.info(f"Using 'name' field from userinfo: {full_name}")
+    
+    # Option 2: Use given_name and family_name from userinfo
+    elif 'given_name' in user_info and 'family_name' in user_info:
+        full_name = f"{user_info['given_name']} {user_info['family_name']}".strip()
+        logger.info(f"Using given_name and family_name from userinfo: {full_name}")
+    
+    # Option 3: Use first_name and last_name if available (some Okta configurations use these)
+    elif 'first_name' in user_info and 'last_name' in user_info:
+        full_name = f"{user_info['first_name']} {user_info['last_name']}".strip()
+        logger.info(f"Using first_name and last_name from userinfo: {full_name}")
+    
+    # Option 4: Fall back to given_name and family_name from ID token claims
+    elif 'given_name' in claims and 'family_name' in claims:
+        full_name = f"{claims.get('given_name')} {claims.get('family_name')}".strip()
+        logger.info(f"Using given_name and family_name from claims: {full_name}")
+    
+    # Option 5: Try to use preferred_username if it looks like a full name (contains a space)
+    elif 'preferred_username' in user_info and ' ' in user_info['preferred_username']:
+        full_name = user_info['preferred_username']
+        logger.info(f"Using preferred_username from userinfo: {full_name}")
+    
+    # Last resort: Use the username part of the email (remove @domain.com)
+    if not full_name or not full_name.strip():
+        full_name = email.split('@')[0]
+        logger.info(f"Using username from email as fallback: {full_name}")
+    
+    # Get unique Okta user ID
     okta_id = claims.get('sub', '')
     
     # Look up or create user in database

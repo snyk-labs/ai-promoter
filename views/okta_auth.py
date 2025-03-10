@@ -69,16 +69,16 @@ def callback():
     
     # Validate the ID token
     id_token = tokens.get('id_token')
+    access_token = tokens.get('access_token')
     nonce = session.get('okta_nonce')
     try:
-        claims = validate_id_token(id_token, nonce)
+        claims = validate_id_token(id_token, nonce, access_token)
     except Exception as e:
         logger.error(f"Error validating ID token: {str(e)}")
         flash(f"Error validating credentials: {str(e)}", 'error')
         return redirect(url_for('auth.login'))
     
     # Get user info using the access token
-    access_token = tokens.get('access_token')
     try:
         user_info = get_user_profile(access_token)
     except Exception as e:

@@ -116,13 +116,14 @@ def exchange_code_for_tokens(code):
         logger.error(f"Error exchanging code for tokens: {str(e)}")
         raise Exception(f"Failed to exchange code for tokens: {str(e)}")
 
-def validate_id_token(id_token, nonce):
+def validate_id_token(id_token, nonce, access_token=None):
     """
     Validate the ID token received from Okta.
     
     Args:
         id_token: The ID token to validate
         nonce: The nonce used in the authorization request
+        access_token: Optional access token to validate at_hash claim
         
     Returns:
         The decoded JWT claims if validation succeeds
@@ -142,7 +143,8 @@ def validate_id_token(id_token, nonce):
                 'verify_exp': True,
                 'verify_nbf': True,
                 'verify_iss': True,
-                'verify_jti': False
+                'verify_jti': False,
+                'verify_at_hash': access_token is not None
             },
             audience=OKTA_CLIENT_ID,
             issuer=OKTA_ISSUER

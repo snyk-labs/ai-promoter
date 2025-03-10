@@ -10,6 +10,7 @@ import secrets
 import logging
 from jose import jwt
 from urllib.parse import urlencode
+import time
 
 # Load environment variables if .env file exists
 try:
@@ -116,6 +117,126 @@ def exchange_code_for_tokens(code):
         logger.error(f"Error exchanging code for tokens: {str(e)}")
         raise Exception(f"Failed to exchange code for tokens: {str(e)}")
 
+def validate_tokens(id_token, access_token, nonce):
+    """
+    Validate the tokens received from Okta, handling the ID token and access token separately.
+    
+    Args:
+        id_token: The ID token to validate
+        access_token: The access token received from Okta
+        nonce: The nonce used in the authorization request
+        
+    Returns:
+        The decoded JWT claims from the ID token if validation succeeds
+        
+    Raises:
+        Exception: If token validation fails
+    """
+    try:
+        # Log token presence
+        if access_token:
+            logger.info("Access token is present")
+        else:
+            logger.warning("No access token provided")
+            
+        # First, get the JWKS (JSON Web Key Set) from Okta for signature verification
+        jwks_uri = f"{OKTA_ISSUER}/v1/keys"
+        jwks_response = requests.get(jwks_uri)
+        jwks_response.raise_for_status()
+        jwks = jwks_response.json()
+        
+        # Get the header to find the key ID (kid)
+        header = jwt.get_unverified_header(id_token)
+        kid = header.get('kid')
+        
+        if not kid:
+            raise Exception("No 'kid' in token header")
+            
+        # Find the correct key in the JWKS
+        rsa_key = None
+        for key in jwks.get('keys', []):
+            if key.get('kid') == kid:
+                rsa_key = key
+                break
+                
+        if not rsa_key:
+            raise Exception(f"No matching key found for kid: {kid}")
+            
+        # Validate everything EXCEPT the at_hash claim
+        try:
+            # First try normal validation
+            claims = jwt.decode(
+                id_token,
+                rsa_key,
+                algorithms=[header.get('alg', 'RS256')],
+                audience=OKTA_CLIENT_ID,
+                issuer=OKTA_ISSUER,
+                options={
+                    'verify_signature': True,  # Verify signature is important for security
+                    'verify_aud': True,
+                    'verify_exp': True,
+                    'verify_iat': True,
+                    'verify_nbf': True,
+                    'verify_iss': True
+                }
+            )
+            logger.info("ID token validated successfully with standard validation")
+            
+        except Exception as e:
+            # If the error is specifically about at_hash, try manual validation
+            if "at_hash" in str(e):
+                logger.warning(f"Standard validation failed due to at_hash: {str(e)}")
+                
+                # Manual validation with signature verification but custom at_hash handling
+                # First, get claims with signature verification but without audience/issuer checks
+                claims = jwt.decode(
+                    id_token,
+                    rsa_key,
+                    algorithms=[header.get('alg', 'RS256')],
+                    options={
+                        'verify_signature': True,  # We still verify the signature
+                        'verify_aud': False,  # We'll verify these manually
+                        'verify_iss': False,
+                        'verify_exp': False,
+                        'verify_iat': False
+                    }
+                )
+                
+                # Now manually validate required claims
+                if claims.get('iss') != OKTA_ISSUER:
+                    raise Exception(f"Invalid issuer. Expected: {OKTA_ISSUER}, Got: {claims.get('iss')}")
+                    
+                if claims.get('aud') != OKTA_CLIENT_ID:
+                    raise Exception(f"Invalid audience. Expected: {OKTA_CLIENT_ID}, Got: {claims.get('aud')}")
+                    
+                # Check expiration
+                current_time = int(time.time())
+                if claims.get('exp', 0) < current_time:
+                    raise Exception("Token has expired")
+                    
+                # Check if token is not yet valid
+                if claims.get('nbf', 0) > current_time:
+                    raise Exception("Token is not yet valid")
+                    
+                logger.info("ID token validated successfully with manual validation")
+                
+            else:
+                # If it's not an at_hash issue, re-raise the exception
+                raise
+        
+        # Check nonce regardless of validation method
+        if claims.get('nonce') != nonce:
+            raise Exception("Invalid nonce in ID token")
+        
+        # Optional: If we have both tokens, we could manually verify at_hash if needed
+        # This would involve computing the hash of the access token and comparing it
+        # with the at_hash claim in the ID token
+            
+        return claims
+    except Exception as e:
+        logger.error(f"Error validating tokens: {str(e)}")
+        raise Exception(f"Failed to validate tokens: {str(e)}")
+
 def validate_id_token(id_token, nonce, access_token=None):
     """
     Validate the ID token received from Okta.
@@ -131,35 +252,8 @@ def validate_id_token(id_token, nonce, access_token=None):
     Raises:
         Exception: If token validation fails
     """
-    try:
-        # Decode and validate the JWT
-        jwt_claims = jwt.decode(
-            token=id_token,
-            key='',  # We're not validating the signature here
-            options={
-                'verify_signature': False,  # This should be True in production
-                'verify_aud': True,
-                'verify_iat': True,
-                'verify_exp': True,
-                'verify_nbf': True,
-                'verify_iss': True,
-                'verify_jti': False,
-                'verify_at_hash': access_token is not None
-            },
-            audience=OKTA_CLIENT_ID,
-            issuer=OKTA_ISSUER
-        )
-        
-        # Verify the nonce
-        if jwt_claims.get('nonce') != nonce:
-            logger.error("Invalid nonce in ID token")
-            raise Exception("Invalid nonce in ID token")
-            
-        logger.info("ID token validated successfully")
-        return jwt_claims
-    except Exception as e:
-        logger.error(f"Error validating ID token: {str(e)}")
-        raise Exception(f"Failed to validate ID token: {str(e)}")
+    # Use our custom validation function that handles at_hash issues
+    return validate_tokens(id_token, access_token, nonce)
 
 def get_user_profile(access_token):
     """

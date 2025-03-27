@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, session
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 import logging
@@ -122,13 +122,14 @@ def profile():
 def linkedin_connect():
     """Start LinkedIn authentication process."""
     try:
-        auth_url, request_token = start_linkedin_auth()
+        auth_result = start_linkedin_auth(current_user)
         
-        # Store the request token for later verification
-        session['linkedin_request_token'] = request_token
-        
-        # Redirect user to LinkedIn authorization page
-        return redirect(auth_url)
+        # Redirect user to LinkedIn authorization page if needed
+        if auth_result['status'] == 'pending':
+            return redirect(auth_result['url'])
+        else:
+            flash('LinkedIn connection successful!', 'success')
+            return redirect(url_for('auth.profile'))
     except Exception as e:
         flash(f'Error connecting to LinkedIn: {str(e)}', 'error')
         return redirect(url_for('auth.profile'))
@@ -139,11 +140,11 @@ def check_linkedin_auth():
     """Check if user is authenticated with LinkedIn."""
     try:
         # Check if user has LinkedIn token
-        is_authenticated, expiry = check_auth_status(current_user.id, LINKEDIN_TOOL)
+        is_authenticated = check_auth_status(current_user, LINKEDIN_TOOL)
         
         return jsonify({
             'authenticated': is_authenticated,
-            'expiry': expiry
+            'status': 'completed' if is_authenticated else 'pending'
         })
     except Exception as e:
         return jsonify({
@@ -176,7 +177,7 @@ def linkedin_post():
             })
             
         # Post to LinkedIn
-        result = post_to_linkedin(current_user.id, post_content)
+        result = post_to_linkedin(current_user, post_content)
         
         if result.get('success'):
             return jsonify({
@@ -199,13 +200,14 @@ def linkedin_post():
 def x_connect():
     """Start X/Twitter authentication process."""
     try:
-        auth_url, request_token = start_x_auth()
+        auth_result = start_x_auth(current_user)
         
-        # Store the request token for later verification
-        session['x_request_token'] = request_token
-        
-        # Redirect user to X/Twitter authorization page
-        return redirect(auth_url)
+        # Redirect user to X/Twitter authorization page if needed
+        if auth_result['status'] == 'pending':
+            return redirect(auth_result['url'])
+        else:
+            flash('X/Twitter connection successful!', 'success')
+            return redirect(url_for('auth.profile'))
     except Exception as e:
         flash(f'Error connecting to X/Twitter: {str(e)}', 'error')
         return redirect(url_for('auth.profile'))
@@ -216,11 +218,11 @@ def check_x_auth():
     """Check if user is authenticated with X/Twitter."""
     try:
         # Check if user has X/Twitter token
-        is_authenticated, expiry = check_auth_status(current_user.id, X_TOOL)
+        is_authenticated = check_auth_status(current_user, X_TOOL)
         
         return jsonify({
             'authenticated': is_authenticated,
-            'expiry': expiry
+            'status': 'completed' if is_authenticated else 'pending'
         })
     except Exception as e:
         return jsonify({
@@ -253,7 +255,7 @@ def x_post():
             })
             
         # Post to X/Twitter
-        result = post_to_x(current_user.id, post_content)
+        result = post_to_x(current_user, post_content)
         
         if result.get('success'):
             return jsonify({

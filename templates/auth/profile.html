@@ -24,9 +24,15 @@
                 </div>
                 <div>
                     {% if current_user.linkedin_authorized %}
-                        <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                            Connected
-                        </span>
+                        <div class="flex space-x-2">
+                            <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                Connected
+                            </span>
+                            <a href="{{ url_for('auth.linkedin_disconnect') }}"
+                               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                Disconnect
+                            </a>
+                        </div>
                     {% else %}
                         <a href="{{ url_for('auth.linkedin_connect') }}"
                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
@@ -52,9 +58,15 @@
                 </div>
                 <div>
                     {% if current_user.x_authorized %}
-                        <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                            Connected
-                        </span>
+                        <div class="flex space-x-2">
+                            <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                Connected
+                            </span>
+                            <a href="{{ url_for('auth.x_disconnect') }}"
+                               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                Disconnect
+                            </a>
+                        </div>
                     {% else %}
                         <a href="{{ url_for('auth.x_connect') }}"
                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-gray-800">

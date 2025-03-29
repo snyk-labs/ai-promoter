@@ -1,13 +1,16 @@
-from flask import Flask
-import os
-from flask_migrate import Migrate
 import logging
+import os
+import sys
 
-# Configure logging
+# Configure logging to output to STDOUT with a more detailed format
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
+
+from flask import Flask
+from flask_migrate import Migrate
 
 from extensions import db, login_manager
 from models import User
@@ -20,58 +23,65 @@ from views.api import bp as api_bp
 from views.auth import bp as auth_bp
 from views.okta_auth import bp as okta_auth_bp
 
+
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
-    
+
     # Database Configuration
     # Use DATABASE_URL environment variable if available
     # Otherwise, fall back to default SQLite for development
-    database_url = os.environ.get('DATABASE_URL')
-    
+    database_url = os.environ.get("DATABASE_URL")
+
     if database_url:
         # If DATABASE_URL is provided, use it directly
-        if database_url.startswith('postgres://'):
+        if database_url.startswith("postgres://"):
             # Handle potential 'postgres://' format that Heroku might provide
-            database_url = database_url.replace('postgres://', 'postgresql://', 1)
-            app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-            app.logger.info(f"Using PostgreSQL database from environment: {database_url.split('@')[0]}@...")
-        elif database_url.startswith('sqlite:///'):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+            app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+            app.logger.info(
+                f"Using PostgreSQL database from environment: {database_url.split('@')[0]}@..."
+            )
+        elif database_url.startswith("sqlite:///"):
             # Handle SQLite URLs in DATABASE_URL
-            app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+            app.config["SQLALCHEMY_DATABASE_URI"] = database_url
             app.logger.info(f"Using custom SQLite database: {database_url}")
         else:
             # Handle other database types
-            app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-            app.logger.info(f"Using database from environment: {database_url.split(':')[0]}")
+            app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+            app.logger.info(
+                f"Using database from environment: {database_url.split(':')[0]}"
+            )
     else:
         # Fall back to default SQLite for development
         basedir = os.path.abspath(os.path.dirname(__file__))
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'promoter.db')
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(
+            basedir, "promoter.db"
+        )
         app.logger.info("Using default SQLite database for development")
-    
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
+
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
     # Set secret key for session management
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-please-change')
-    
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key-please-change")
+
     # Add Okta configuration to app config
-    app.config['OKTA_ENABLED'] = OKTA_ENABLED
-    
+    app.config["OKTA_ENABLED"] = OKTA_ENABLED
+
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
-    
+
     # Initialize Flask-Migrate
     migrate = Migrate(app, db)
-    
+
     # Validate Okta configuration
     with app.app_context():
         try:
             validate_okta_config()
         except ValueError as e:
             app.logger.warning(f"Okta configuration error: {str(e)}")
-            app.config['OKTA_ENABLED'] = False
+            app.config["OKTA_ENABLED"] = False
 
     # User loader for Flask-Login
     @login_manager.user_loader
@@ -81,11 +91,11 @@ def create_app():
 
     # Register blueprints
     app.register_blueprint(main_bp)  # Main routes
-    app.register_blueprint(api_bp)   # API routes
+    app.register_blueprint(api_bp)  # API routes
     app.register_blueprint(auth_bp)  # Auth routes
-    
+
     # Register Okta blueprint if enabled
-    if app.config['OKTA_ENABLED']:
+    if app.config["OKTA_ENABLED"]:
         app.register_blueprint(okta_auth_bp)
         app.logger.info("Okta SSO integration enabled")
     else:
@@ -100,8 +110,9 @@ def create_app():
 
     return app
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app = create_app()
     with app.app_context():
         db.create_all()
-    app.run(debug=True) 
+    app.run(debug=True)

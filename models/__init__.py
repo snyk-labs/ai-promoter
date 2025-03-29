@@ -11,4 +11,4 @@ from models.post import Post
 from models.video import Video
 
 # Define __all__ to explicitly state what's available when importing with *
-__all__ = ['User', 'Episode', 'Post', 'Video'] 
+__all__ = ["User", "Episode", "Post", "Video"]

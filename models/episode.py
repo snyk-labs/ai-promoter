@@ -5,9 +5,10 @@ Episode model for podcast episodes.
 from datetime import datetime
 from extensions import db
 
+
 class Episode(db.Model):
-    __tablename__ = 'episodes'
-    
+    __tablename__ = "episodes"
+
     id = db.Column(db.Integer, primary_key=True)
     episode_number = db.Column(db.Integer, nullable=False)
     title = db.Column(db.String(200), nullable=False)
@@ -18,4 +19,4 @@ class Episode(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     def __repr__(self):
-        return f'<Episode {self.episode_number}: {self.title}>' 
+        return f"<Episode {self.episode_number}: {self.title}>"

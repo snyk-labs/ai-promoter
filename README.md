@@ -41,7 +41,7 @@ The application is structured as follows:
 
 ## Prerequisites
 
-- Python 3.12 or newer
+- Python 3.12 (there are issues with Python 3.13 currently due to the aiohttp library)
 - pip (Python package installer)
 - Virtual environment tool (venv)
 

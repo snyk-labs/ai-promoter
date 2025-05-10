@@ -20,6 +20,7 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     bio = db.Column(db.Text, nullable=True)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
 
     # Authentication source - using server_default for SQLite compatibility
     auth_type = db.Column(

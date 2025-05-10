@@ -1,8 +1,12 @@
 from functools import wraps
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import current_user, login_required
-from models.manual_content import ManualContent
+from models.content import Content
 from extensions import db
+from services.content_processor import ContentProcessor
+import logging
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -23,56 +27,49 @@ def admin_required(f):
 @admin_required
 def dashboard():
     """Admin dashboard page."""
-    # Get all manual content, ordered by creation date (newest first)
-    manual_content = ManualContent.query.order_by(ManualContent.created_at.desc()).all()
-    return render_template("admin/dashboard.html", manual_content=manual_content)
+    # Get all content items ordered by creation date
+    content_items = Content.query.order_by(Content.created_at.desc()).all()
+    return render_template("admin/dashboard.html", content_items=content_items)
 
 
 @bp.route("/content/create", methods=["POST"])
 @login_required
 @admin_required
 def create_content():
-    """Create new manual content."""
+    """Create new content using Firecrawl and OpenAI."""
     url = request.form.get("url")
-    content_type = request.form.get("content_type")
+    context = request.form.get("context")
 
-    if not all([url, content_type]):
-        flash("URL and content type are required.", "error")
+    if not url:
+        flash("URL is required.", "error")
         return redirect(url_for("admin.dashboard"))
 
-    # Create new content
-    new_content = ManualContent(
-        url=url,
-        content_type=content_type,
-        created_by_id=current_user.id
-    )
+    # Check for duplicate URL
+    existing_content = Content.query.filter_by(url=url).first()
+    if existing_content:
+        flash("This URL has already been added as content.", "error")
+        return redirect(url_for("admin.dashboard"))
 
     try:
-        db.session.add(new_content)
-        db.session.commit()
-        flash("Content added successfully!", "success")
+        # Initialize content processor
+        processor = ContentProcessor()
+        
+        # Process the URL and create content
+        content = processor.process_url(url, submitted_by_id=current_user.id)
+        
+        # Add context if provided
+        if context:
+            content.context = context
+            db.session.commit()
+        
+        if content:
+            flash("Content created successfully!", "success")
+        else:
+            flash("Failed to create content.", "error")
     except Exception as e:
-        db.session.rollback()
-        flash(f"Error adding content: {str(e)}", "error")
-
-    return redirect(url_for("admin.dashboard"))
-
-
-@bp.route("/content/<int:content_id>/toggle", methods=["POST"])
-@login_required
-@admin_required
-def toggle_content(content_id):
-    """Toggle content active status."""
-    content = ManualContent.query.get_or_404(content_id)
-    content.is_active = not content.is_active
-
-    try:
-        db.session.commit()
-        status = "activated" if content.is_active else "deactivated"
-        flash(f"Content {status} successfully!", "success")
-    except Exception as e:
-        db.session.rollback()
-        flash(f"Error updating content: {str(e)}", "error")
+        # Handle unexpected errors
+        logger.exception("Unexpected error while adding content")
+        flash(f"Error creating content: {str(e)}", "error")
 
     return redirect(url_for("admin.dashboard"))
 
@@ -82,14 +79,14 @@ def toggle_content(content_id):
 @admin_required
 def delete_content(content_id):
     """Delete content."""
-    content = ManualContent.query.get_or_404(content_id)
-
     try:
-        db.session.delete(content)
-        db.session.commit()
-        flash("Content deleted successfully!", "success")
+        content = Content.query.get(content_id)
+        if content:
+            content.delete()
+            flash("Content deleted successfully!", "success")
+        else:
+            flash("Content not found.", "error")
     except Exception as e:
-        db.session.rollback()
         flash(f"Error deleting content: {str(e)}", "error")
 
     return redirect(url_for("admin.dashboard")) 

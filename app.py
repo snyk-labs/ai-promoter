@@ -14,7 +14,7 @@ from flask_migrate import Migrate
 
 from extensions import db, login_manager
 from models import User
-from cli import init_db, sync_podcast, sync_blog, sync_youtube, list_routes, create_admin
+from cli import init_db, list_routes, create_admin
 from helpers.okta import OKTA_ENABLED, validate_okta_config
 
 # Import blueprints from views package
@@ -69,6 +69,12 @@ def create_app():
     # Add Okta configuration to app config
     app.config["OKTA_ENABLED"] = OKTA_ENABLED
 
+    # Add Firecrawl configuration
+    firecrawl_api_key = os.environ.get("FIRECRAWL_API_KEY")
+    if not firecrawl_api_key:
+        app.logger.warning("FIRECRAWL_API_KEY not set - content scraping will be disabled")
+    app.config["FIRECRAWL_API_KEY"] = firecrawl_api_key
+
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
@@ -104,10 +110,7 @@ def create_app():
         app.logger.info("Okta SSO integration disabled")
 
     # Register CLI commands
-    app.cli.add_command(sync_podcast)
     app.cli.add_command(init_db)
-    app.cli.add_command(sync_blog)
-    app.cli.add_command(sync_youtube)
     app.cli.add_command(list_routes)
     app.cli.add_command(create_admin)
 

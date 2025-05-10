@@ -6,19 +6,18 @@ This package contains all database models for the application, organized into se
 
 - `__init__.py` - Package initialization that imports and exports all models
 - `user.py` - User model for authentication and profile data
-- `episode.py` - Podcast episode model
-- `post.py` - Blog post model
-- `video.py` - YouTube video model
+- `content.py` - Unified Content model for all types of content (articles, videos, podcasts)
 
 ## Usage
 
 Models can be imported directly from the package:
 
 ```python
-from models import User, Episode, Post, Video
+from models import User, Content
 
 # Or import specific models
 from models.user import User
+from models.content import Content
 ```
 
 ## Model Relationships

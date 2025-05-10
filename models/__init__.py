@@ -5,11 +5,8 @@ This package contains all the database models for the application.
 All models are imported here to provide a clean API for importing elsewhere.
 """
 
+from models.content import Content
 from models.user import User
-from models.episode import Episode
-from models.post import Post
-from models.video import Video
-from models.manual_content import ManualContent
 
-# Define __all__ to explicitly state what's available when importing with *
-__all__ = ["User", "Episode", "Post", "Video", "ManualContent"]
+# Define __all__ to explicitly state what's available when importing from models
+__all__ = ['Content', 'User']

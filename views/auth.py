@@ -23,7 +23,7 @@ from helpers.arcade import (
     LINKEDIN_TOOL,
     X_TOOL,
 )
-from helpers.openai import validate_post_length, SocialPlatform
+from helpers.openai import validate_post_length
 
 # Set up logging
 logger = logging.getLogger(__name__)

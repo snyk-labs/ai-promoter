@@ -1,6 +1,7 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, jsonify, request
 from flask_login import current_user
-from models import Episode, Post, Video, ManualContent
+from models.content import Content
+from sqlalchemy import desc
 
 # Create a blueprint for main routes
 bp = Blueprint("main", __name__)
@@ -8,39 +9,68 @@ bp = Blueprint("main", __name__)
 
 @bp.route("/")
 def index():
-    """Main index page that shows all content sorted by publish date."""
-    # Get all episodes, posts, and videos ordered by publish date (most recent first)
-    # Limit to 100 items total for the initial load
-    episodes = Episode.query.order_by(Episode.publish_date.desc()).all()
-    posts = Post.query.order_by(Post.publish_date.desc()).all()
-    videos = Video.query.order_by(Video.publish_date.desc()).all()
-    manual_content = ManualContent.query.filter_by(is_active=True).order_by(ManualContent.created_at.desc()).all()
+    # Get the first page of content items
+    content_items = Content.query.order_by(desc(Content.created_at)).limit(12).all()
+    has_more_content = Content.query.count() > 12
+    
+    return render_template('index.html', 
+                         content_items=content_items,
+                         has_more_content=has_more_content)
 
-    # Combine all content into a single list
-    content_items = []
+@bp.route('/api/content')
+def get_content():
+    page = request.args.get('page', 1, type=int)
+    per_page = 12
+    
+    # Get paginated content items
+    content_items = Content.query.order_by(desc(Content.created_at))\
+        .offset((page - 1) * per_page)\
+        .limit(per_page + 1)\
+        .all()
+    
+    # Check if there are more items
+    has_more = len(content_items) > per_page
+    if has_more:
+        content_items = content_items[:-1]
+    
+    # Convert items to dict for JSON response
+    items = [{
+        'id': item.id,
+        'title': item.title,
+        'content_type': item.content_type,
+        'url': item.url,
+        'excerpt': item.excerpt,
+        'image_url': item.image_url,
+        'author': item.author,
+        'publish_date': item.publish_date.isoformat() if item.publish_date else None,
+        'created_at': item.created_at.isoformat()
+    } for item in content_items]
+    
+    return jsonify({
+        'content': items,
+        'has_more': has_more
+    })
 
-    # Add episodes with a content_type indicator
-    for episode in episodes:
-        content_items.append({"item": episode, "content_type": "podcast"})
-
-    # Add posts with a content_type indicator
-    for post in posts:
-        content_items.append({"item": post, "content_type": "blog"})
-
-    # Add videos with a content_type indicator
-    for video in videos:
-        content_items.append({"item": video, "content_type": "video"})
-
-    # Add manual content with a content_type indicator
-    for content in manual_content:
-        content_items.append({"item": content, "content_type": content.content_type})
-
-    # Sort all content by publish date (most recent first)
-    content_items.sort(key=lambda x: x["item"].publish_date if hasattr(x["item"], "publish_date") else x["item"].created_at, reverse=True)
-
-    # Get total count of items to determine if there are more than 100
-    total_count = len(content_items)
-
-    return render_template(
-        "index.html", content_items=content_items, total_count=total_count
-    )
+@bp.route('/api/promote', methods=['POST'])
+def promote_content():
+    data = request.get_json()
+    content_id = data.get('content_id')
+    content_type = data.get('content_type')
+    title = data.get('title')
+    description = data.get('description')
+    
+    if not all([content_id, content_type, title, description]):
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    try:
+        # Get the content item
+        content = Content.query.get(content_id)
+        if not content:
+            return jsonify({'error': 'Content not found'}), 404
+        
+        # TODO: Implement promotion logic here
+        # For now, just return success
+        return jsonify({'message': 'Content promoted successfully'})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

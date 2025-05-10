@@ -1,96 +1,107 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50 py-12">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- Welcome Section -->
-        <div class="bg-white shadow sm:rounded-lg mb-8">
-            <div class="px-4 py-5 sm:p-6">
-                <h1 class="text-2xl font-bold text-gray-900 mb-4">
-                    Welcome to the Admin Dashboard, {{ current_user.name }}!
-                </h1>
-            </div>
-        </div>
-
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold mb-4">Welcome, {{ current_user.name }}</h1>
+        
         <!-- Content Creation Form -->
-        <div class="bg-white shadow sm:rounded-lg mb-8">
-            <div class="px-4 py-5 sm:p-6">
-                <h2 class="text-lg font-medium text-gray-900 mb-4">Add New Content</h2>
-                <form action="{{ url_for('admin.create_content') }}" method="POST" class="space-y-4">
-                    <div>
-                        <label for="url" class="block text-sm font-medium text-gray-700">URL</label>
-                        <input type="url" name="url" id="url" required
-                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                               placeholder="https://example.com/content">
-                    </div>
-
-                    <div>
-                        <label for="content_type" class="block text-sm font-medium text-gray-700">Content Type</label>
-                        <select name="content_type" id="content_type" required
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                            <option value="">Select a content type</option>
-                            <option value="article">Article</option>
-                            <option value="video">Video</option>
-                            <option value="podcast">Podcast</option>
-                            <option value="asset">Asset</option>
-                        </select>
-                    </div>
-
-                    <div class="flex justify-end">
-                        <button type="submit"
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            Add Content
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Existing Content List -->
-        <div class="bg-white shadow sm:rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <h2 class="text-lg font-medium text-gray-900 mb-4">Existing Content</h2>
-                {% if manual_content %}
-                    <div class="space-y-4">
-                        {% for item in manual_content %}
-                            <div class="border rounded-lg p-4 {% if not item.is_active %}bg-gray-50{% endif %}">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <div class="flex items-center space-x-2">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                {% if item.content_type == 'article' %}bg-green-100 text-green-800
-                                                {% elif item.content_type == 'video' %}bg-red-100 text-red-800
-                                                {% elif item.content_type == 'podcast' %}bg-purple-100 text-purple-800
-                                                {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                                {{ item.content_type|title }}
-                                            </span>
-                                            <span class="text-sm text-gray-500">{{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
-                                        </div>
-                                        <a href="{{ item.url }}" target="_blank" class="mt-2 block text-indigo-600 hover:text-indigo-500 break-all">
-                                            {{ item.url }}
-                                        </a>
-                                    </div>
-                                    <div class="flex space-x-2">
-                                        <form action="{{ url_for('admin.toggle_content', content_id=item.id) }}" method="POST" class="inline">
-                                            <button type="submit"
-                                                    class="text-sm {% if item.is_active %}text-red-600 hover:text-red-500{% else %}text-green-600 hover:text-green-500{% endif %}">
-                                                {% if item.is_active %}Deactivate{% else %}Activate{% endif %}
-                                            </button>
-                                        </form>
-                                        <form action="{{ url_for('admin.delete_content', content_id=item.id) }}" method="POST" class="inline"
-                                              onsubmit="return confirm('Are you sure you want to delete this content?');">
-                                            <button type="submit" class="text-sm text-red-600 hover:text-red-500">Delete</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="text-gray-500">No content has been added yet.</p>
-                {% endif %}
-            </div>
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Add New Content</h2>
+            <form id="contentForm" action="{{ url_for('admin.create_content') }}" method="POST" class="space-y-4">
+                <div>
+                    <label for="url" class="block text-sm font-medium text-gray-700">URL</label>
+                    <input type="url" name="url" id="url" required
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                           placeholder="https://example.com/article">
+                </div>
+                <div>
+                    <label for="context" class="block text-sm font-medium text-gray-700">Additional Context (Optional)</label>
+                    <textarea name="context" id="context" rows="4"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                           placeholder="Add any additional context that might be helpful when creating social media posts about this content..."></textarea>
+                    <p class="mt-1 text-sm text-gray-500">
+                        This field can be used to provide additional context, key points, or specific angles that should be emphasized when creating social media posts about this content. For example, you might want to highlight specific insights, target audience, or unique aspects of the content.
+                    </p>
+                </div>
+                <div>
+                    <button type="submit" id="submitBtn"
+                            class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center justify-center">
+                        <span id="buttonText">Add Content</span>
+                        <svg id="loadingSpinner" class="hidden animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
+
+    <!-- Content List -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold mb-4">Existing Content</h2>
+        
+        {% if content_items %}
+        <div class="space-y-4">
+            {% for item in content_items %}
+            <div class="border rounded-lg p-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-lg font-medium">{{ item.title }}</h3>
+                        <p class="text-sm text-gray-500 mt-1">
+                            <a href="{{ item.url }}" target="_blank" class="text-blue-600 hover:text-blue-800">
+                                {{ item.url }}
+                            </a>
+                        </p>
+                        {% if item.excerpt %}
+                        <p class="text-sm text-gray-600 mt-2">{{ item.excerpt }}</p>
+                        {% endif %}
+                        {% if item.context %}
+                        <div class="mt-2 p-2 bg-gray-50 rounded">
+                            <p class="text-sm font-medium text-gray-700">Additional Context:</p>
+                            <p class="text-sm text-gray-600">{{ item.context }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <form action="{{ url_for('admin.delete_content', content_id=item.id) }}" 
+                          method="POST" 
+                          onsubmit="return confirm('Are you sure you want to delete this content?');">
+                        <button type="submit" 
+                                class="text-red-600 hover:text-red-800">
+                            Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-600">No content available.</p>
+        {% endif %}
+    </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('contentForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const buttonText = document.getElementById('buttonText');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+
+    form.addEventListener('submit', function(e) {
+        // Prevent double submission
+        if (submitBtn.disabled) {
+            e.preventDefault();
+            return;
+        }
+
+        // Disable the button and show loading state
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+        buttonText.textContent = 'Processing...';
+        loadingSpinner.classList.remove('hidden');
+    });
+});
+</script>
 {% endblock %} 

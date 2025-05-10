@@ -3,11 +3,92 @@
 {% block content %}
 <div class="min-h-screen bg-gray-50 py-12">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="bg-white shadow sm:rounded-lg">
+        <!-- Welcome Section -->
+        <div class="bg-white shadow sm:rounded-lg mb-8">
             <div class="px-4 py-5 sm:p-6">
                 <h1 class="text-2xl font-bold text-gray-900 mb-4">
                     Welcome to the Admin Dashboard, {{ current_user.name }}!
                 </h1>
+            </div>
+        </div>
+
+        <!-- Content Creation Form -->
+        <div class="bg-white shadow sm:rounded-lg mb-8">
+            <div class="px-4 py-5 sm:p-6">
+                <h2 class="text-lg font-medium text-gray-900 mb-4">Add New Content</h2>
+                <form action="{{ url_for('admin.create_content') }}" method="POST" class="space-y-4">
+                    <div>
+                        <label for="url" class="block text-sm font-medium text-gray-700">URL</label>
+                        <input type="url" name="url" id="url" required
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                               placeholder="https://example.com/content">
+                    </div>
+
+                    <div>
+                        <label for="content_type" class="block text-sm font-medium text-gray-700">Content Type</label>
+                        <select name="content_type" id="content_type" required
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            <option value="">Select a content type</option>
+                            <option value="article">Article</option>
+                            <option value="video">Video</option>
+                            <option value="podcast">Podcast</option>
+                            <option value="asset">Asset</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit"
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Add Content
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Existing Content List -->
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h2 class="text-lg font-medium text-gray-900 mb-4">Existing Content</h2>
+                {% if manual_content %}
+                    <div class="space-y-4">
+                        {% for item in manual_content %}
+                            <div class="border rounded-lg p-4 {% if not item.is_active %}bg-gray-50{% endif %}">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                {% if item.content_type == 'article' %}bg-green-100 text-green-800
+                                                {% elif item.content_type == 'video' %}bg-red-100 text-red-800
+                                                {% elif item.content_type == 'podcast' %}bg-purple-100 text-purple-800
+                                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                                {{ item.content_type|title }}
+                                            </span>
+                                            <span class="text-sm text-gray-500">{{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                                        </div>
+                                        <a href="{{ item.url }}" target="_blank" class="mt-2 block text-indigo-600 hover:text-indigo-500 break-all">
+                                            {{ item.url }}
+                                        </a>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <form action="{{ url_for('admin.toggle_content', content_id=item.id) }}" method="POST" class="inline">
+                                            <button type="submit"
+                                                    class="text-sm {% if item.is_active %}text-red-600 hover:text-red-500{% else %}text-green-600 hover:text-green-500{% endif %}">
+                                                {% if item.is_active %}Deactivate{% else %}Activate{% endif %}
+                                            </button>
+                                        </form>
+                                        <form action="{{ url_for('admin.delete_content', content_id=item.id) }}" method="POST" class="inline"
+                                              onsubmit="return confirm('Are you sure you want to delete this content?');">
+                                            <button type="submit" class="text-sm text-red-600 hover:text-red-500">Delete</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500">No content has been added yet.</p>
+                {% endif %}
             </div>
         </div>
     </div>

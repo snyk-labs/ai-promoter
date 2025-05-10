@@ -81,6 +81,19 @@
                            class="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300">
                             Profile
                         </a>
+                        {% if current_user.is_admin %}
+                            {% if request.endpoint.startswith('admin.') %}
+                            <a href="{{ url_for('main.index') }}" 
+                               class="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300">
+                                User Dashboard
+                            </a>
+                            {% else %}
+                            <a href="{{ url_for('admin.dashboard') }}" 
+                               class="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300">
+                                Admin Dashboard
+                            </a>
+                            {% endif %}
+                        {% endif %}
                         <a href="{{ url_for('auth.logout') }}" 
                            class="ml-4 px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
                             Logout

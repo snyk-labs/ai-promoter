@@ -14,7 +14,7 @@ from flask_migrate import Migrate
 
 from extensions import db, login_manager
 from models import User
-from cli import init_db, sync_podcast, sync_blog, sync_youtube, list_routes
+from cli import init_db, sync_podcast, sync_blog, sync_youtube, list_routes, create_admin
 from helpers.okta import OKTA_ENABLED, validate_okta_config
 
 # Import blueprints from views package
@@ -22,6 +22,7 @@ from views.main import bp as main_bp
 from views.api import bp as api_bp
 from views.auth import bp as auth_bp
 from views.okta_auth import bp as okta_auth_bp
+from views.admin import bp as admin_bp
 
 
 def create_app():
@@ -93,6 +94,7 @@ def create_app():
     app.register_blueprint(main_bp)  # Main routes
     app.register_blueprint(api_bp)  # API routes
     app.register_blueprint(auth_bp)  # Auth routes
+    app.register_blueprint(admin_bp)  # Admin routes
 
     # Register Okta blueprint if enabled
     if app.config["OKTA_ENABLED"]:
@@ -107,6 +109,7 @@ def create_app():
     app.cli.add_command(sync_blog)
     app.cli.add_command(sync_youtube)
     app.cli.add_command(list_routes)
+    app.cli.add_command(create_admin)
 
     return app
 

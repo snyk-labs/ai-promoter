@@ -178,11 +178,7 @@
 
 <script>
     // Pass admin status to JavaScript for createContentCard function and other dynamic UI updates
-    {% if current_user.is_authenticated and current_user.is_admin %}
-    var currentUserIsAdmin = true;
-    {% else %}
-    var currentUserIsAdmin = false;
-    {% endif %}
+    var currentUserIsAdmin = {{ (current_user.is_authenticated and current_user.is_admin) | tojson }};
 
     let currentContentId = null;
     let currentContentType = null;
@@ -278,12 +274,7 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    user: {
-                        name: '{{ current_user.name }}',
-                        bio: '{{ current_user.bio }}'
-                    }
-                })
+                body: JSON.stringify({}) 
             });
             
             if (!response.ok) {

@@ -34,7 +34,8 @@ def index():
     if content_items:
         for item in content_items:
             if item.id == 1: # Assuming you are testing with content_id = 1 as per logs
-                logging.info(f"Index route: Fetched content id 1 with excerpt: '{item.excerpt}'")
+                # logging.info(f"Index route: Fetched content id 1 with excerpt: '{item.excerpt}'")
+                pass # Add pass to avoid indentation error after commenting out the line
             # You might want to log all items or be more specific based on your testing
     else:
         logging.info("Index route: No content items fetched.")

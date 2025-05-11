@@ -20,14 +20,14 @@ def get_platform_config(platform):
         'linkedin': {
             "name": "LinkedIn",
             "max_length": LINKEDIN_CHAR_LIMIT,
-            "max_tokens": 200,
+            "max_tokens": 700,
             "url_char_approx": URL_CHAR_APPROX,
             "style": "Professional and informative, focusing on value and insights"
         },
         'generic': {
-            "name": "Generic",
+            "name": "Generic Platform",
             "max_length": LINKEDIN_CHAR_LIMIT,
-            "max_tokens": 300,
+            "max_tokens": 700,
             "url_char_approx": URL_CHAR_APPROX,
             "style": "Engaging and informative, focusing on key value propositions"
         }
@@ -38,20 +38,18 @@ def get_platform_config(platform):
 def format_time_context(publish_date):
     """
     Format a human-readable time description based on the publish date.
-
-    Args:
-        publish_date: Datetime object representing the publication date
-
-    Returns:
-        String with human-readable time context
+    Handles cases where publish_date might be None.
     """
     if not publish_date:
-        return ""
-    
+        return "recently"
+
     now = datetime.utcnow()
+    
     diff = now - publish_date
     
-    if diff.days == 0:
+    if diff.days < 0:
+        return "upcoming"
+    elif diff.days == 0:
         return "today"
     elif diff.days == 1:
         return "yesterday"
@@ -70,35 +68,23 @@ def format_time_context(publish_date):
 
 def get_content_type_info(content_item):
     """
-    Get content type information based on the item type.
+    Get generic content type information for the unified Content model.
+    The original distinction by 'podcast', 'video', 'article' is no longer
+    derived from a 'content_type' field on the model.
 
     Args:
-        content_item: The content object
+        content_item: The Content object.
 
     Returns:
-        Tuple with (content_type, content_type_name, url_field, content_description)
+        Tuple with (content_type_string, content_type_name, url_field, content_description)
     """
-    content_type = content_item.content_type.lower()
+    content_type_string = "content"
+    content_type_name = "Content Item"
     
-    if content_type == 'podcast':
-        content_type_name = "podcast episode"
-        url_field = content_item.url
-        content_description = content_item.title
-    elif content_type == 'video':
-        content_type_name = "YouTube video"
-        url_field = content_item.url
-        content_description = content_item.title
-    elif content_type == 'article':
-        content_type_name = "blog post"
-        url_field = content_item.url
-        content_description = content_item.title
-    else:
-        # Default to blog if unknown type
-        content_type_name = "blog post"
-        url_field = content_item.url
-        content_description = content_item.title
+    url_field = content_item.url
+    content_description = content_item.title
 
-    return content_type, content_type_name, url_field, content_description
+    return content_type_string, content_type_name, url_field, content_description
 
 
 def render_system_prompt(platform, retry_attempt=0, last_length=0):
@@ -119,44 +105,47 @@ def render_user_prompt(content_item, user, platform='linkedin'):
     Render the user prompt for OpenAI using the appropriate template.
 
     Args:
-        content_item: The content object
-        user: The user object with profile info
-        platform: The social platform to generate content for
+        content_item: The Content object.
+        user: The User object with profile info.
+        platform: The social platform to generate content for.
 
     Returns:
-        Rendered user prompt string
+        Rendered user prompt string.
     """
     platform_config = get_platform_config(platform)
 
-    # Format the time context
+    _, _, _, content_title_for_template = get_content_type_info(content_item)
+    content_type_for_template, _, _, _ = get_content_type_info(content_item)
+
     time_context = format_time_context(content_item.publish_date)
-
-    # Get description, using excerpt if available
     description = content_item.excerpt if content_item.excerpt else ""
-
-    # Truncate description if too long
     if len(description) > 400:
         description = description[:397] + "..."
 
-    # Get user information
+    # Get scraped content, limiting its length if necessary
+    scraped_content = content_item.scraped_content if content_item.scraped_content else ""
+    if len(scraped_content) > 2000:  # Limit to 2000 chars to avoid overwhelming the context
+        scraped_content = scraped_content[:1997] + "..."
+
     user_name = getattr(user, "name", "AI Promoter User")
     user_bio = getattr(user, "bio", "")
     if not user_bio or (isinstance(user_bio, str) and not user_bio.strip()):
         user_bio = "Security professional"
 
-    # Get blog author if available
-    blog_author = content_item.author if hasattr(content_item, 'author') else ""
+    # Get user's example social posts
+    user_example_posts = getattr(user, "example_social_posts", "")
 
-    # Render the template with the variables
     return render_template(
         "prompts/base_user.html",
-        content_description=content_item.title,
+        content_description=content_title_for_template,
         url=content_item.url,
         description=description,
         time_context=time_context,
         user_name=user_name,
         user_bio=user_bio,
-        blog_author=blog_author,
+        user_example_posts=user_example_posts,
         platform=platform,
-        platform_config=platform_config
+        platform_config=platform_config,
+        content_type=content_type_for_template,
+        scraped_content=scraped_content
     )

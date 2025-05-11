@@ -2,12 +2,10 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 from models import Content
 from helpers.openai import (
-    generate_social_post,
+    SocialPostGenerator,
     validate_post_length,
-    LINKEDIN_CHAR_LIMIT,
-    URL_CHAR_APPROX,
 )
-from helpers.prompt_templates import get_platform_config
+from helpers.prompts import get_platform_config
 from datetime import datetime
 import logging
 from extensions import db # Import the shared db instance
@@ -21,24 +19,20 @@ bp = Blueprint("api", __name__, url_prefix="/api")
 def promote_content(content_id):
     """Generate social media posts for a content item."""
     try:
-        # Get content item
         content = Content.query.get_or_404(content_id)
         
-        # Get user from request
-        user = request.json.get("user", {})
-        if not user:
-            return jsonify({"error": "User information is required"}), 400
+        post_generator = SocialPostGenerator()
+        generated_posts = post_generator.generate_all_platform_posts(content, current_user)
 
-        # Generate LinkedIn post
-        linkedin_post = generate_social_post(content, user, "linkedin")
-
-        # Validate post length
-        is_valid, length = validate_post_length(linkedin_post, "linkedin")
-
-        # Prepare warnings
+        linkedin_post = generated_posts.get("linkedin")
         warnings = []
-        if not is_valid:
-            warnings.append(f"LinkedIn: Post exceeds character limit ({length} characters)")
+
+        if linkedin_post is None:
+            warnings.append("LinkedIn: Post generation failed.")
+        else:
+            is_valid, length, limit = validate_post_length(linkedin_post, "linkedin")
+            if not is_valid:
+                warnings.append(f"LinkedIn: Post may exceed character limit ({length}/{limit} characters). Please review and edit if necessary.")
 
         return jsonify({
             "linkedin": linkedin_post,
@@ -46,8 +40,8 @@ def promote_content(content_id):
         })
 
     except Exception as e:
-        logging.error(f"Error promoting content: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        logging.error(f"Error in promote_content endpoint for content {content_id}: {str(e)}")
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 
 @bp.route("/content")

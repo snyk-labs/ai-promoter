@@ -4,13 +4,23 @@ Create an engaging {{ platform }} post about this {{ content_type }}.
 The TOTAL post (including the URL) MUST be {{ platform_config.max_length }} characters or less.
 
 Content Details:
-- Title: {{ content_description }}
-- Description: {{ description }}
-- URL: {{ url }}
-- Timing: {{ time_context }}
+<begin_content>
+Title: {{ content_description }}
+Description: {{ description }}
+URL: {{ url }}
+Timing: {{ time_context }}
+Scraped Content: {{ scraped_content }}
+</end_content>
 
 Person authoring this social post: {{ user_name }}
 Background of the person authoring this social post: {{ user_bio }}
+
+{% if user_example_posts and user_example_posts.strip() %}
+User's Previous Post Style Examples (use these as a strong reference for tone, voice, and formatting):
+<begin_examples>
+{{ user_example_posts }}
+</end_examples>
+{% endif %}
 
 Key Requirements:
 1. STRICT LIMIT: Your text must be {{ platform_config.max_length }} characters or less to leave room for the URL

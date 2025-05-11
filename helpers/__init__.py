@@ -10,12 +10,10 @@ This package contains helper modules for different components of the AI Promoter
 
 # Import common helper functions to make them available at the package level
 from helpers.openai import (
-    generate_social_post,
+    SocialPostGenerator,
     validate_post_length,
-    LINKEDIN_CHAR_LIMIT,
-    URL_CHAR_APPROX,
 )
-from helpers.prompt_templates import (
+from helpers.prompts import (
     get_platform_config,
     render_user_prompt,
     render_system_prompt,
@@ -23,10 +21,8 @@ from helpers.prompt_templates import (
 from helpers.arcade import post_to_linkedin, check_auth_status
 
 __all__ = [
-    "generate_social_post",
+    "SocialPostGenerator",
     "validate_post_length",
-    "LINKEDIN_CHAR_LIMIT",
-    "URL_CHAR_APPROX",
     "get_platform_config",
     "render_user_prompt",
     "render_system_prompt",

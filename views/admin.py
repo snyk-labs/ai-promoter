@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, redirect, url_for, flash, request
 from flask_login import current_user, login_required
 from models.content import Content
 from extensions import db
@@ -22,16 +22,6 @@ def admin_required(f):
     return decorated_function
 
 
-@bp.route("/")
-@login_required
-@admin_required
-def dashboard():
-    """Admin dashboard page."""
-    # Get all content items ordered by creation date
-    content_items = Content.query.order_by(Content.created_at.desc()).all()
-    return render_template("admin/dashboard.html", content_items=content_items)
-
-
 @bp.route("/content/create", methods=["POST"])
 @login_required
 @admin_required
@@ -40,15 +30,26 @@ def create_content():
     url = request.form.get("url")
     context = request.form.get("context")
 
+    # Determine redirect target based on referrer
+    # Default to main.index as admin.dashboard is removed.
+    final_redirect_url = url_for("main.index") 
+
+    # The user explicitly asked for the redirect to be conditional based on where it was posted FROM.
+    # If posted from main.index, stay on main.index. That part should be kept.
+    # This check is now somewhat redundant if default is main.index, but harmless.
+    if request.referrer and url_for("main.index") in request.referrer:
+        final_redirect_url = url_for("main.index")
+    # No else needed, as it's already main.index
+
     if not url:
         flash("URL is required.", "error")
-        return redirect(url_for("admin.dashboard"))
+        return redirect(final_redirect_url)
 
     # Check for duplicate URL
     existing_content = Content.query.filter_by(url=url).first()
     if existing_content:
         flash("This URL has already been added as content.", "error")
-        return redirect(url_for("admin.dashboard"))
+        return redirect(final_redirect_url)
 
     try:
         # Initialize content processor
@@ -71,22 +72,4 @@ def create_content():
         logger.exception("Unexpected error while adding content")
         flash(f"Error creating content: {str(e)}", "error")
 
-    return redirect(url_for("admin.dashboard"))
-
-
-@bp.route("/content/<int:content_id>/delete", methods=["POST"])
-@login_required
-@admin_required
-def delete_content(content_id):
-    """Delete content."""
-    try:
-        content = Content.query.get(content_id)
-        if content:
-            content.delete()
-            flash("Content deleted successfully!", "success")
-        else:
-            flash("Content not found.", "error")
-    except Exception as e:
-        flash(f"Error deleting content: {str(e)}", "error")
-
-    return redirect(url_for("admin.dashboard")) 
+    return redirect(final_redirect_url) 

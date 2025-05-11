@@ -133,3 +133,25 @@ def update_content(content_id):
         db.session.rollback()
         logging.error(f"Error updating content: {str(e)}")
         return jsonify({"error": "Failed to update content"}), 500
+
+
+@bp.route("/content/<int:content_id>", methods=["DELETE"])
+@login_required
+def delete_content_api(content_id):
+    """Delete a content item. Only accessible to admin users."""
+    if not current_user.is_admin:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    content = Content.query.get_or_404(content_id)
+    
+    try:
+        # Instead of content.delete() which might be a custom method not shown,
+        # use db.session.delete() and db.session.commit()
+        db.session.delete(content)
+        db.session.commit()
+        logging.info(f"Content {content_id} deleted successfully by user {current_user.id}")
+        return jsonify({"message": "Content deleted successfully"})
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error deleting content {content_id}: {str(e)}")
+        return jsonify({"error": "Failed to delete content"}), 500

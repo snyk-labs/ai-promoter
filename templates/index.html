@@ -14,25 +14,24 @@
                 <p class="text-sm text-gray-500 mb-2">Submitted by: {{ item.submitted_by.name }}</p>
                 {% endif %}
                 <p class="text-gray-600 mb-4">{{ item.excerpt or '' }}</p>
-                <div class="flex justify-between items-center">
-                    <a href="{{ item.url }}" target="_blank" class="text-blue-600 hover:text-blue-800">View Content</a>
+                <div class="flex justify-between items-center space-x-2">
+                    <button onclick="window.open('{{ item.url }}', '_blank')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">View Content</button>
                     {% if current_user.is_admin %}
                     <button 
-                        class="edit-btn"
+                        class="edit-btn px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
                         data-content-id="{{ item.id }}"
-                        data-content-type="{{ item.content_type }}"
                         data-title="{{ item.title }}"
-                        data-excerpt="{{ item.excerpt }}"
+                        data-excerpt="{{ item.excerpt or '' }}"
                         data-url="{{ item.url }}"
-                        data-image-url="{{ item.image_url }}"
+                        data-image-url="{{ item.image_url or '' }}"
                         data-context="{{ item.context or '' }}"
                     >
                         Edit
                     </button>
                     {% endif %}
                     <button 
-                        class="promote-btn"
-                        data-content-type="{{ item.content_type }}"
+                        class="promote-btn px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+                        data-content-type="{{ item.content_type }}" 
                         data-content-id="{{ item.id }}"
                     >
                         Promote
@@ -270,12 +269,12 @@ function createContentCard(item) {
         <div class="p-6">
             <h2 class="text-xl font-semibold mb-2">${item.title}</h2>
             ${item.submitted_by ? `<p class="text-sm text-gray-500 mb-2">Submitted by: ${item.submitted_by.name}</p>` : ''}
-            ${item.excerpt ? `<p class="text-gray-600 mb-4">${item.excerpt}</p>` : ''}
-            <div class="flex justify-between items-center">
-                <a href="${item.url}" target="_blank" class="text-blue-600 hover:text-blue-800">View Content</a>
+            ${item.excerpt ? `<p class="text-gray-600 mb-4">${item.excerpt || ''}</p>` : ''}
+            <div class="flex justify-between items-center space-x-2">
+                <button onclick="window.open('${item.url}', '_blank')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">View Content</button>
                 ${ current_user.is_admin ? `
                 <button 
-                    class="edit-btn"
+                    class="edit-btn px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
                     data-content-id="${item.id}"
                     data-title="${item.title}"
                     data-excerpt="${item.excerpt || ''}"
@@ -287,8 +286,8 @@ function createContentCard(item) {
                 </button>
                 ` : '' }
                 <button 
-                    class="promote-btn"
-                    data-content-type="${item.content_type}"
+                    class="promote-btn px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+                    data-content-type="${item.content_type}" 
                     data-content-id="${item.id}"
                 >
                     Promote

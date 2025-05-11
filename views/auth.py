@@ -198,16 +198,9 @@ def linkedin_post():
             )
 
         # Post to LinkedIn
-        result = post_to_linkedin(current_user, post_content)
+        post_to_linkedin(current_user, post_content)
+        return jsonify({"success": True, "message": "Posted to LinkedIn successfully!"})
 
-        if result.get("success"):
-            return jsonify(
-                {"success": True, "message": "Posted to LinkedIn successfully!"}
-            )
-        else:
-            return jsonify(
-                {"success": False, "error": result.get("error", "Unknown error")}
-            )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 

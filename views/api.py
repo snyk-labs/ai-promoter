@@ -30,9 +30,9 @@ def promote_content(content_id):
         if linkedin_post is None:
             warnings.append("LinkedIn: Post generation failed.")
         else:
-            is_valid, length, limit = validate_post_length(linkedin_post, "linkedin")
+            is_valid, length = validate_post_length(linkedin_post, "linkedin")
             if not is_valid:
-                warnings.append(f"LinkedIn: Post may exceed character limit ({length}/{limit} characters). Please review and edit if necessary.")
+                warnings.append(f"LinkedIn: Post may exceed character limit ({length} characters). Please review and edit if necessary.")
 
         return jsonify({
             "linkedin": linkedin_post,

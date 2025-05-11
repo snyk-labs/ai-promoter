@@ -169,7 +169,7 @@ def validate_post_length(post, platform='linkedin', url=None):
         url: Optional URL string to be considered in the length calculation if not already in the post.
 
     Returns:
-        Tuple of (is_valid, current_length, max_length)
+        Tuple of (is_valid, current_length)
     """
     # Import here to ensure it's available and to avoid top-level circular dependency issues.
     from helpers.prompts import get_platform_config
@@ -188,7 +188,7 @@ def validate_post_length(post, platform='linkedin', url=None):
 
     is_valid = current_length <= max_len
 
-    return is_valid, current_length, max_len
+    return is_valid, current_length
 
 # Removed old functions:
 # get_openai_client (moved into class)

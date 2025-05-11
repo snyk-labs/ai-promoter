@@ -37,6 +37,9 @@ class User(UserMixin, db.Model):
     # Autonomous mode for automatic posting
     autonomous_mode = db.Column(db.Boolean, default=False, nullable=False)
 
+    # Field for example social posts
+    example_social_posts = db.Column(db.Text, nullable=True)
+
     def set_password(self, password):
         """Hash password with bcrypt using work factor 13."""
         salt = bcrypt.gensalt(rounds=13)

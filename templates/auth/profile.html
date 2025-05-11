@@ -28,6 +28,20 @@
                 >{{ current_user.bio or "" }}</textarea>
             </div>
 
+            <div>
+                <label for="example_social_posts" class="block text-sm font-medium text-gray-700">Example Social Media Posts (Optional)</label>
+                <textarea
+                    name="example_social_posts"
+                    id="example_social_posts"
+                    rows="6"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="Paste a few examples of social media posts you\'ve written, each separated by a blank line. This helps us match your style."
+                >{{ current_user.example_social_posts or "" }}</textarea>
+                <p class="mt-1 text-xs text-gray-500">
+                    Provide a few examples of your typical social media posts. Separate each post with a blank line. This will help the AI generate content that matches your personal style and tone.
+                </p>
+            </div>
+
             <div class="flex justify-end">
                 <button
                     type="submit"

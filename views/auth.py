@@ -113,6 +113,7 @@ def profile():
         # Update user information
         name = request.form.get("name")
         bio = request.form.get("bio")
+        example_social_posts = request.form.get("example_social_posts")
 
         if not name:
             flash("Name is required.", "error")
@@ -121,6 +122,7 @@ def profile():
         # Update the user's profile
         current_user.name = name
         current_user.bio = bio
+        current_user.example_social_posts = example_social_posts
 
         db.session.commit()
         flash("Profile updated successfully!", "success")

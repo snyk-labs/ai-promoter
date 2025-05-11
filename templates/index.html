@@ -350,12 +350,13 @@
         const charCounterElement = document.getElementById('charCounter');
 
         const linkedinLimitForDisplay = CHAR_LIMITS.LINKEDIN;
+        const isOverLinkedinLimit = currentLength > linkedinLimitForDisplay;
 
         // Use flexbox to align items on the same line
         let counterHTML = `
             <div class="flex justify-between items-center">
                 <span class="text-gray-600">Total Length: ${currentLength}</span>
-                <span class="text-gray-600">LinkedIn: ${currentLength} / ${linkedinLimitForDisplay}</span>
+                <span class="${isOverLinkedinLimit ? 'text-red-500' : 'text-gray-600'}">LinkedIn: ${currentLength} / ${linkedinLimitForDisplay}</span>
             </div>
         `;
         

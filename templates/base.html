@@ -76,7 +76,7 @@
                     </button>
 
                     {% if current_user.is_authenticated %}
-                        <span class="text-gray-700 dark:text-gray-300 mr-4">Welcome, {{ current_user.name }}</span>
+                        <span class="text-gray-700 dark:text-gray-300 mr-4">Welcome, {{ current_user.name }} {% if current_user.is_admin %}👮{% endif %}</span>
                         <a href="{{ url_for('auth.profile') }}" 
                            class="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300">
                             Profile

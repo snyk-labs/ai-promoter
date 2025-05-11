@@ -113,7 +113,26 @@ export DATABASE_URL="sqlite:///ai-promoter.db"  # Change if using PostgreSQL or 
 
 # Enable/disable Okta SSO (defaults to false)
 export OKTA_ENABLED="false"  # Set to "true" to enable Okta SSO
+
+# Company configuration
+export COMPANY_NAME="Your Company Name"  # Displayed in the UI and page titles
+export UTM_PARAMS="?utm_source=yourcompany.com&utm_medium=social"  # UTM parameters to append to all promoted URLs
+export DASHBOARD_BANNER="<p>Custom HTML banner for non-admin users</p>"  # HTML content to display at the top of the dashboard
 ```
+
+The `DASHBOARD_BANNER` can contain any valid HTML and will be displayed at the top of the dashboard for non-admin users. For example:
+
+```bash
+export DASHBOARD_BANNER='<p class="font-bold">Important Notice</p><p>Please check out our new <a href="https://example.com" class="font-bold hover:underline">documentation</a> for the latest updates!</p>'
+```
+
+The `UTM_PARAMS` should be a query string that will be appended to all URLs in generated social media posts. For example:
+
+```bash
+export UTM_PARAMS="?utm_source=yourcompany.com&utm_medium=social&utm_campaign=promotion"
+```
+
+Note: The `UTM_PARAMS` can start with or without a `?` - the application will handle both formats correctly.
 
 ### Setting Up Okta SSO (Optional)
 

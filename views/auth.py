@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 import logging
 
 from extensions import db
-from models import User
+from models import User, Share
 from helpers.arcade import (
     start_linkedin_auth,
     check_auth_status,
@@ -179,12 +179,16 @@ def check_linkedin_auth():
 def linkedin_post():
     """Post content to LinkedIn."""
     try:
-        # Get post content
+        # Get post content and content ID
         data = request.get_json()
         post_content = data.get("post")
+        content_id = data.get("content_id")
 
         if not post_content:
             return jsonify({"success": False, "error": "Post content is required"})
+
+        if not content_id:
+            return jsonify({"success": False, "error": "Content ID is required"})
 
         # Validate post length
         is_valid, length = validate_post_length(post_content, "linkedin")
@@ -198,7 +202,19 @@ def linkedin_post():
             )
 
         # Post to LinkedIn
-        post_to_linkedin(current_user, post_content)
+        response = post_to_linkedin(current_user, post_content)
+
+        # Create Share record
+        share = Share(
+            user_id=current_user.id,
+            content_id=content_id,
+            platform='linkedin',
+            post_content=post_content,
+            post_url=response.get('url') if response and 'url' in response else None
+        )
+        db.session.add(share)
+        db.session.commit()
+
         return jsonify({"success": True, "message": "Posted to LinkedIn successfully!"})
 
     except Exception as e:

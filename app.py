@@ -17,6 +17,7 @@ from extensions import db, login_manager
 from models import User
 from cli import init_db, list_routes, create_admin
 from helpers.okta import OKTA_ENABLED, validate_okta_config
+from helpers.template_helpers import get_platform_color, get_platform_icon
 
 # Import blueprints from views package
 from views.main import bp as main_bp
@@ -37,6 +38,12 @@ def create_app():
     @app.context_processor
     def inject_now():
         return {'now': datetime.utcnow()}
+
+    # Add template helpers
+    app.jinja_env.globals.update(
+        getPlatformColor=get_platform_color,
+        getPlatformIcon=get_platform_icon
+    )
 
     # Database Configuration
     # Use DATABASE_URL environment variable if available

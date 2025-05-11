@@ -70,6 +70,10 @@ def get_paginated_content():
             aware_created_at = item.created_at.replace(tzinfo=datetime.timezone.utc)
             created_at_iso = aware_created_at.isoformat()
 
+        # Get share statistics
+        share_count = item.share_count
+        platform_share_counts = item.platform_share_counts
+
         items.append({
             "id": item.id,
             "title": item.title,
@@ -78,7 +82,9 @@ def get_paginated_content():
             "publish_date": item.publish_date.isoformat() if item.publish_date else None,
             "url": item.url,
             "created_at": created_at_iso,
-            "submitted_by": {"name": item.submitted_by.name} if item.submitted_by else None 
+            "submitted_by": {"name": item.submitted_by.name} if item.submitted_by else None,
+            "share_count": share_count,
+            "platform_share_counts": platform_share_counts
         })
 
     return jsonify({

@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+from datetime import datetime
 
 # Configure logging to output to STDOUT with a more detailed format
 logging.basicConfig(
@@ -28,6 +29,14 @@ from views.admin import bp as admin_bp
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
+
+    # Load configuration
+    app.config.from_object('config.Config')
+
+    # Add template context processors
+    @app.context_processor
+    def inject_now():
+        return {'now': datetime.utcnow()}
 
     # Database Configuration
     # Use DATABASE_URL environment variable if available
@@ -65,6 +74,10 @@ def create_app():
 
     # Set secret key for session management
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key-please-change")
+
+    # Add company configuration
+    app.config["COMPANY_NAME"] = os.environ.get("COMPANY_NAME", "Your Company")
+    app.config["UTM_PARAMS"] = os.environ.get("UTM_PARAMS", "")
 
     # Add Okta configuration to app config
     app.config["OKTA_ENABLED"] = OKTA_ENABLED

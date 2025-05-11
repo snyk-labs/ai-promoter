@@ -39,8 +39,12 @@
     </div>
     {% elif not current_user.is_anonymous %}
     <div class="mb-8 bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4" role="alert">
-        <p class="font-bold">Content Idea?</p>
-        <p>Have an idea for a piece of content all Snykers should promote? Please let us know in our <a href="https://snyk.enterprise.slack.com/archives/C0108NPKY12" target="_blank" class="font-bold hover:underline">#ask-social-media</a> Slack channel!</p>
+        {% if config.DASHBOARD_BANNER %}
+            {{ config.DASHBOARD_BANNER | safe }}
+        {% else %}
+            <p class="font-bold">Content Idea?</p>
+            <p>Have an idea for a piece of content all Snykers should promote? Please let us know in our <a href="https://snyk.enterprise.slack.com/archives/C0108NPKY12" target="_blank" class="font-bold hover:underline">#ask-social-media</a> Slack channel!</p>
+        {% endif %}
     </div>
     {% endif %}
 

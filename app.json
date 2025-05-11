@@ -10,6 +10,15 @@
       "description": "A secret key for secure session management",
       "generator": "secret"
     },
+    "COMPANY_NAME": {
+      "description": "Your company name to be displayed in the application",
+      "value": "Your Company",
+      "required": false
+    },
+    "UTM_PARAMS": {
+      "description": "Optional UTM parameters to append to all promoted URLs (e.g., ?utm_source=company.com)",
+      "required": false
+    },
     "OPENAI_API_KEY": {
       "description": "Your OpenAI API key for generating social media content",
       "required": true

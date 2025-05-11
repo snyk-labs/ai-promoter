@@ -1,5 +1,6 @@
-from flask import render_template
+from flask import render_template, current_app
 from datetime import datetime
+from helpers.utils import append_utm_params
 
 # Define character limits for different platforms
 LINKEDIN_CHAR_LIMIT = 3000
@@ -135,10 +136,14 @@ def render_user_prompt(content_item, user, platform='linkedin'):
     # Get user's example social posts
     user_example_posts = getattr(user, "example_social_posts", "")
 
+    # Get UTM parameters from app config and append to URL
+    utm_params = current_app.config.get("UTM_PARAMS", "")
+    url = append_utm_params(content_item.url, utm_params)
+
     return render_template(
         "prompts/base_user.html",
         content_description=content_title_for_template,
-        url=content_item.url,
+        url=url,
         description=description,
         time_context=time_context,
         user_name=user_name,

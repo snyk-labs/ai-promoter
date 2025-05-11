@@ -147,3 +147,47 @@ def truncate_text(text, max_length=100, suffix="..."):
         return text
 
     return text[: max_length - len(suffix)].strip() + suffix
+
+
+def append_utm_params(url, utm_params):
+    """
+    Append UTM parameters to a URL.
+
+    Args:
+        url: The base URL to append parameters to
+        utm_params: String containing UTM parameters (e.g. "utm_source=linkedin&utm_medium=social" or "?utm_source=linkedin")
+
+    Returns:
+        URL with UTM parameters appended
+    """
+    if not url or not utm_params:
+        return url
+
+    # Remove leading ? from utm_params if present
+    if utm_params.startswith('?'):
+        utm_params = utm_params[1:]
+
+    # Parse the URL
+    parsed = urllib.parse.urlparse(url)
+    
+    # Parse existing query parameters
+    existing_params = urllib.parse.parse_qs(parsed.query)
+    
+    # Parse new UTM parameters
+    utm_params_dict = urllib.parse.parse_qs(utm_params)
+    
+    # Merge parameters, with UTM params taking precedence
+    merged_params = {**existing_params, **utm_params_dict}
+    
+    # Rebuild query string
+    new_query = urllib.parse.urlencode(merged_params, doseq=True)
+    
+    # Rebuild URL with new query
+    return urllib.parse.urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path,
+        parsed.params,
+        new_query,
+        parsed.fragment
+    ))

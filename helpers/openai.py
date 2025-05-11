@@ -15,7 +15,6 @@ from enum import Enum, auto
 logger = logging.getLogger(__name__)
 
 # Define character limits for different platforms
-TWITTER_CHAR_LIMIT = 280
 LINKEDIN_CHAR_LIMIT = 3000
 URL_CHAR_APPROX = 30
 
@@ -30,31 +29,16 @@ def get_openai_client():
     return OpenAI(api_key=api_key)
 
 
-def detect_content_type(content_item):
-    """Detect the type of content being promoted."""
-    content_type = content_item.content_type.lower()
-    
-    if content_type == 'podcast':
-        return 'podcast'
-    elif content_type == 'video':
-        return 'video'
-    elif content_type == 'article':
-        return 'blog'
-    else:
-        # Default to blog if we can't determine
-        return 'blog'
-
-
 def generate_social_post(
-    content_item, user, platform='generic', max_retries=3
+    content_item, user, platform='linkedin', max_retries=3
 ):
     """
-    Generate a social media post for various content types.
+    Generate a social media post for LinkedIn.
 
     Args:
         content_item: The content object
         user: The user object with profile info
-        platform: The social platform to generate content for (determines character limits)
+        platform: The social platform to generate content for (always LinkedIn)
         max_retries: Maximum number of retries for content generation
 
     Returns:
@@ -72,20 +56,6 @@ def generate_social_post(
     # Get platform-specific configuration
     platform_config = get_platform_config(platform)
 
-    # Detect content type
-    content_type = detect_content_type(content_item)
-
-    # Set content-specific variables
-    if content_type == 'podcast':
-        content_type_name = "podcast episode"
-        url_field = content_item.url
-    elif content_type == 'video':
-        content_type_name = "YouTube video"
-        url_field = content_item.url
-    elif content_type == 'blog':
-        content_type_name = "blog post"
-        url_field = content_item.url
-
     # Track retries
     attempts = 0
     post = None
@@ -98,7 +68,7 @@ def generate_social_post(
             response = client.chat.completions.create(
                 model="gpt-4-turbo-preview",
                 messages=[
-                    {"role": "system", "content": render_system_prompt(platform)},
+                    {"role": "system", "content": render_system_prompt(platform, attempts + 1, last_length)},
                     {"role": "user", "content": render_user_prompt(content_item, user, platform)}
                 ],
                 temperature=0.7,
@@ -130,7 +100,7 @@ def generate_social_post(
 
 def generate_platform_specific_posts(content_item, user, max_retries=3):
     """
-    Generate platform-specific social media posts for content items.
+    Generate LinkedIn social media post for content items.
 
     Args:
         content_item: The content object
@@ -138,22 +108,9 @@ def generate_platform_specific_posts(content_item, user, max_retries=3):
         max_retries: Maximum number of retries for content generation
 
     Returns:
-        A dictionary containing posts for each platform
+        A dictionary containing the LinkedIn post
     """
     posts = {}
-
-    # Generate Twitter post
-    if user.x_authorized:
-        try:
-            posts["twitter"] = generate_social_post(
-                content_item,
-                user,
-                platform='twitter',
-                max_retries=max_retries,
-            )
-        except Exception as e:
-            logger.error(f"Failed to generate Twitter post: {str(e)}")
-            posts["twitter"] = None
 
     # Generate LinkedIn post
     if user.linkedin_authorized:
@@ -171,17 +128,17 @@ def generate_platform_specific_posts(content_item, user, max_retries=3):
     return posts
 
 
-def validate_post_length(post, platform='generic', url=None):
+def validate_post_length(post, platform='linkedin', url=None):
     """
-    Validate if a post is within platform character limits.
+    Validate if a post is within LinkedIn character limits.
 
     Args:
         post: The post content
-        platform: The social platform to validate against
+        platform: The social platform to validate against (always LinkedIn)
         url: Optional URL to be added to the post if not already included
 
     Returns:
-        Tuple of (is_valid_for_twitter, is_valid_for_linkedin, total_length)
+        Tuple of (is_valid, total_length)
     """
     total_length = len(post)
 
@@ -190,10 +147,8 @@ def validate_post_length(post, platform='generic', url=None):
         total_length += len(url) + 1  # +1 for space
 
     from helpers.prompt_templates import get_platform_config
-    twitter_config = get_platform_config('twitter')
     linkedin_config = get_platform_config('linkedin')
 
-    is_valid_for_twitter = total_length <= twitter_config["max_length"]
-    is_valid_for_linkedin = total_length <= linkedin_config["max_length"]
+    is_valid = total_length <= linkedin_config["max_length"]
 
-    return is_valid_for_twitter, is_valid_for_linkedin, total_length
+    return is_valid, total_length

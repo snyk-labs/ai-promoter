@@ -1,8 +1,8 @@
 import click
 from datetime import datetime
-from models import Content
-from helpers.openai import generate_platform_specific_posts
-from helpers.arcade import post_to_linkedin, post_to_x
+from models import Content, User
+from helpers.openai import generate_social_post
+from helpers.arcade import post_to_linkedin
 
 
 def handle_autonomous_posting(content_item):
@@ -32,12 +32,7 @@ def handle_autonomous_posting(content_item):
     for user in users:
         try:
             # Generate platform-specific posts
-            posts = generate_platform_specific_posts(content_item, user)
-
-            # Post to Twitter if available and authorized
-            if user.x_authorized and posts.get("twitter"):
-                click.echo(f"Posting to Twitter for user {user.name}...")
-                post_to_x(user, posts["twitter"])
+            posts = generate_social_post(content_item, user)
 
             # Post to LinkedIn if available and authorized
             if user.linkedin_authorized and posts.get("linkedin"):
@@ -47,3 +42,23 @@ def handle_autonomous_posting(content_item):
         except Exception as e:
             click.echo(f"Error processing user {user.name}: {str(e)}")
             continue
+
+
+def get_authorized_users():
+    """Get all users who have authorized social media accounts."""
+    return User.query.filter(User.linkedin_authorized == True).all()
+
+
+def post_to_social_media(user, content, posts):
+    """
+    Post content to social media for a user.
+
+    Args:
+        user: The user to post as
+        content: The content item to post about
+        posts: Dictionary of generated posts
+    """
+    # Post to LinkedIn if available and authorized
+    if user.linkedin_authorized and posts.get("linkedin"):
+        click.echo(f"Posting to LinkedIn for user {user.name}...")
+        post_to_linkedin(user, posts["linkedin"])

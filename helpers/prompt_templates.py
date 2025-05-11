@@ -2,7 +2,6 @@ from flask import render_template
 from datetime import datetime
 
 # Define character limits for different platforms
-TWITTER_CHAR_LIMIT = 280
 LINKEDIN_CHAR_LIMIT = 3000
 URL_CHAR_APPROX = 30
 
@@ -12,26 +11,25 @@ def get_platform_config(platform):
     Get platform-specific configuration for social media posts.
 
     Args:
-        platform: String platform name ('twitter', 'linkedin', or 'generic')
+        platform: String platform name ('linkedin' or 'generic')
 
     Returns:
         Dictionary with platform config values
     """
     configs = {
-        'twitter': {
-            "name": "Twitter",
-            "max_length": TWITTER_CHAR_LIMIT,
-            "max_tokens": 100
-        },
         'linkedin': {
             "name": "LinkedIn",
             "max_length": LINKEDIN_CHAR_LIMIT,
-            "max_tokens": 500
+            "max_tokens": 200,
+            "url_char_approx": URL_CHAR_APPROX,
+            "style": "Professional and informative, focusing on value and insights"
         },
         'generic': {
             "name": "Generic",
-            "max_length": TWITTER_CHAR_LIMIT,
-            "max_tokens": 300
+            "max_length": LINKEDIN_CHAR_LIMIT,
+            "max_tokens": 300,
+            "url_char_approx": URL_CHAR_APPROX,
+            "style": "Engaging and informative, focusing on key value propositions"
         }
     }
     return configs.get(platform, configs['generic'])
@@ -103,17 +101,20 @@ def get_content_type_info(content_item):
     return content_type, content_type_name, url_field, content_description
 
 
-def render_system_prompt(platform):
+def render_system_prompt(platform, retry_attempt=0, last_length=0):
     """Render the system prompt for OpenAI."""
     platform_config = get_platform_config(platform)
     
-    return f"""You are a social media content creator specializing in security and technology content.
-Your task is to create engaging social media posts for {platform_config['name']}.
-The post should be informative, engaging, and encourage clicks while staying within {platform_config['max_length']} characters.
-Focus on the key value proposition and make it compelling for the target audience."""
+    return render_template(
+        "prompts/base_system.html",
+        platform=platform,
+        platform_config=platform_config,
+        retry_attempt=retry_attempt,
+        last_length=last_length
+    )
 
 
-def render_user_prompt(content_item, user, platform='generic'):
+def render_user_prompt(content_item, user, platform='linkedin'):
     """
     Render the user prompt for OpenAI using the appropriate template.
 
@@ -126,9 +127,6 @@ def render_user_prompt(content_item, user, platform='generic'):
         Rendered user prompt string
     """
     platform_config = get_platform_config(platform)
-    content_type, content_type_name, url_field, content_description = (
-        get_content_type_info(content_item)
-    )
 
     # Format the time context
     time_context = format_time_context(content_item.publish_date)
@@ -147,26 +145,18 @@ def render_user_prompt(content_item, user, platform='generic'):
         user_bio = "Security professional"
 
     # Get blog author if available
-    blog_author = content_item.author if content_item.author else ""
+    blog_author = content_item.author if hasattr(content_item, 'author') else ""
 
-    # Choose the appropriate template based on content type
-    if content_type == 'podcast':
-        template = "prompts/podcast_user.html"
-    elif content_type == 'video':
-        template = "prompts/video_user.html"
-    elif content_type == 'article':
-        template = "prompts/blog_user.html"
-    else:
-        template = "prompts/base_user.html"
-
-    return {
-        "content_type": content_type_name,
-        "content_description": content_description,
-        "url": url_field,
-        "description": description,
-        "time_context": time_context,
-        "user_name": user_name,
-        "user_bio": user_bio,
-        "blog_author": blog_author,
-        "platform": platform
-    }
+    # Render the template with the variables
+    return render_template(
+        "prompts/base_user.html",
+        content_description=content_item.title,
+        url=content_item.url,
+        description=description,
+        time_context=time_context,
+        user_name=user_name,
+        user_bio=user_bio,
+        blog_author=blog_author,
+        platform=platform,
+        platform_config=platform_config
+    )

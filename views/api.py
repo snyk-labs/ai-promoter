@@ -4,7 +4,6 @@ from models import Content
 from helpers.openai import (
     generate_social_post,
     validate_post_length,
-    TWITTER_CHAR_LIMIT,
     LINKEDIN_CHAR_LIMIT,
     URL_CHAR_APPROX,
 )
@@ -29,23 +28,18 @@ def promote_content(content_id):
         if not user:
             return jsonify({"error": "User information is required"}), 400
 
-        # Generate social posts
-        twitter_post = generate_social_post(content, user, "twitter")
+        # Generate LinkedIn post
         linkedin_post = generate_social_post(content, user, "linkedin")
 
-        # Validate post lengths
-        twitter_warnings = validate_post_length(twitter_post, "twitter")
-        linkedin_warnings = validate_post_length(linkedin_post, "linkedin")
+        # Validate post length
+        is_valid, length = validate_post_length(linkedin_post, "linkedin")
 
         # Prepare warnings
         warnings = []
-        if twitter_warnings:
-            warnings.append(f"Twitter: {twitter_warnings}")
-        if linkedin_warnings:
-            warnings.append(f"LinkedIn: {linkedin_warnings}")
+        if not is_valid:
+            warnings.append(f"LinkedIn: Post exceeds character limit ({length} characters)")
 
         return jsonify({
-            "twitter": twitter_post,
             "linkedin": linkedin_post,
             "warnings": warnings
         })

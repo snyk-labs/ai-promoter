@@ -43,33 +43,38 @@
 <!-- Promote Modal -->
 <div id="promoteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
     <div class="bg-white rounded-lg p-8 max-w-lg w-full mx-4">
-        <h2 class="text-2xl font-bold mb-4">Promote Content</h2>
-        <form id="promoteForm" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Title</label>
-                <input type="text" id="promoteTitle" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Description</label>
-                <textarea id="promoteDescription" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></textarea>
+        <h2 class="text-2xl font-bold mb-4">Generated Social Media Post</h2>
+        <div id="promoteContent" class="space-y-4">
+            <div id="loadingSpinner" class="flex justify-center">
+                <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
             </div>
-            <div class="flex justify-end space-x-4">
-                <button type="button" onclick="closePromoteModal()" class="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200">
-                    Cancel
-                </button>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                    Promote
+            <div id="linkedinPost" class="hidden">
+                <h3 class="text-lg font-semibold mb-2">LinkedIn Post</h3>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p id="linkedinContent" class="text-gray-800"></p>
+                </div>
+                <button onclick="postToLinkedIn()" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    Post to LinkedIn
                 </button>
             </div>
-        </form>
+            <div id="errorMessage" class="hidden text-red-600"></div>
+        </div>
+        <div class="mt-6 flex justify-end">
+            <button onclick="closePromoteModal()" class="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200">
+                Close
+            </button>
+        </div>
     </div>
 </div>
 
 <script>
 let currentContentId = null;
-    let currentContentType = null;
-    let currentPage = 1;
-    let isLoading = false;
+let currentContentType = null;
+let currentPage = 1;
+let isLoading = false;
 let hasMoreContent = document.getElementById('loadMoreBtn') !== null;
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -87,53 +92,93 @@ document.addEventListener('DOMContentLoaded', function() {
     if (loadMoreBtn) {
         loadMoreBtn.addEventListener('click', loadMoreContent);
     }
-
-    // Add event listener for promote form
-    const promoteForm = document.getElementById('promoteForm');
-    promoteForm.addEventListener('submit', handlePromoteSubmit);
 });
-    
+
 function showPromoteModal(contentType, contentId) {
     currentContentType = contentType;
     currentContentId = contentId;
-        document.getElementById('promoteModal').classList.remove('hidden');
-    }
     
+    // Show loading state
+    document.getElementById('promoteModal').classList.remove('hidden');
+    document.getElementById('loadingSpinner').classList.remove('hidden');
+    document.getElementById('linkedinPost').classList.add('hidden');
+    document.getElementById('errorMessage').classList.add('hidden');
+    
+    // Generate social media post
+    generateSocialPost();
+}
+
 function closePromoteModal() {
     document.getElementById('promoteModal').classList.add('hidden');
     currentContentType = null;
     currentContentId = null;
-    }
-    
-async function handlePromoteSubmit(e) {
-    e.preventDefault();
-    
-    const title = document.getElementById('promoteTitle').value;
-    const description = document.getElementById('promoteDescription').value;
-    
+}
+
+async function generateSocialPost() {
     try {
-        const response = await fetch('/api/promote', {
+        const response = await fetch(`/api/promote/${currentContentId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                content_type: currentContentType,
-                content_id: currentContentId,
-                title: title,
-                description: description
+                user: {
+                    name: '{{ current_user.name }}',
+                    bio: '{{ current_user.bio }}'
+                }
             })
         });
         
         if (!response.ok) {
-            throw new Error('Failed to promote content');
-    }
-    
-        closePromoteModal();
-        // Optionally refresh the page or show a success message
+            throw new Error('Failed to generate social media post');
+        }
+        
+        const data = await response.json();
+        
+        // Hide loading spinner
+        document.getElementById('loadingSpinner').classList.add('hidden');
+        
+        // Show LinkedIn post if available
+        if (data.linkedin) {
+            document.getElementById('linkedinPost').classList.remove('hidden');
+            document.getElementById('linkedinContent').textContent = data.linkedin;
+        }
+        
+        // Show warnings if any
+        if (data.warnings && data.warnings.length > 0) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = data.warnings.join('\n');
+            errorDiv.classList.remove('hidden');
+        }
     } catch (error) {
-        console.error('Error promoting content:', error);
-        alert('Failed to promote content. Please try again.');
+        console.error('Error generating social post:', error);
+        document.getElementById('loadingSpinner').classList.add('hidden');
+        const errorDiv = document.getElementById('errorMessage');
+        errorDiv.textContent = 'Failed to generate social media post. Please try again.';
+        errorDiv.classList.remove('hidden');
+    }
+}
+
+async function postToLinkedIn() {
+    try {
+        const content = document.getElementById('linkedinContent').textContent;
+        const response = await fetch('/auth/linkedin/post', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ post: content })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            alert('Posted to LinkedIn successfully!');
+        } else {
+            alert(data.error || 'Failed to post to LinkedIn');
+        }
+    } catch (error) {
+        console.error('Error posting to LinkedIn:', error);
+        alert('Failed to post to LinkedIn. Please try again.');
     }
 }
 
@@ -153,7 +198,7 @@ async function loadMoreContent() {
         data.content.forEach(item => {
             const contentCard = createContentCard(item);
             contentContainer.appendChild(contentCard);
-                    });
+        });
         
         hasMoreContent = data.has_more;
         if (!hasMoreContent) {
@@ -197,6 +242,6 @@ function createContentCard(item) {
     });
     
     return card;
-    }
+}
 </script>
 {% endblock %} 

@@ -30,11 +30,9 @@ class User(UserMixin, db.Model):
     # Okta user identifier
     okta_id = db.Column(db.String(100), nullable=True, unique=True)
 
-    # Arcade LinkedIn integration field
+    # Arcade LinkedIn integration fields
     linkedin_authorized = db.Column(db.Boolean, default=False, nullable=False)
-
-    # Arcade X integration field
-    x_authorized = db.Column(db.Boolean, default=False, nullable=False)
+    linkedin_token = db.Column(db.Text, nullable=True)
 
     # Autonomous mode for automatic posting
     autonomous_mode = db.Column(db.Boolean, default=False, nullable=False)

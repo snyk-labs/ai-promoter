@@ -1,247 +1,70 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50 flex flex-col py-12 sm:px-6 lg:px-8">
-    <div class="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 class="text-center text-3xl font-extrabold text-gray-900">
-            Your Profile
-        </h2>
-    </div>
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Profile Settings</h1>
 
-    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-        <!-- LinkedIn Connection Status -->
-        <div class="bg-white py-6 px-4 shadow sm:rounded-lg sm:px-10 mb-6">
-            <div class="flex items-center justify-between">
-                <div>
+        <form method="POST" class="space-y-6">
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+                <input
+                    type="text"
+                    name="name"
+                    id="name"
+                    value="{{ current_user.name }}"
+                    required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+            </div>
+
+            <div>
+                <label for="bio" class="block text-sm font-medium text-gray-700">Bio</label>
+                <textarea
+                    name="bio"
+                    id="bio"
+                    rows="4"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                >{{ current_user.bio or "" }}</textarea>
+            </div>
+
+            <div class="flex justify-end">
+                <button
+                    type="submit"
+                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                    Save Changes
+                </button>
+            </div>
+        </form>
+
+        <div class="mt-12">
+            <h2 class="text-2xl font-bold mb-6">Social Media Connections</h2>
+
+            <div class="space-y-6">
+                <div class="bg-white p-6 rounded-lg shadow">
                     <h3 class="text-lg font-medium text-gray-900">LinkedIn Connection</h3>
-                    <p class="mt-1 text-sm text-gray-500">
+                    <div class="mt-4">
                         {% if current_user.linkedin_authorized %}
-                            Connected to LinkedIn
+                        <p class="text-green-600">Connected to LinkedIn</p>
+                        <form action="{{ url_for('auth.linkedin_disconnect') }}" method="POST" class="mt-2">
+                            <button type="submit" class="text-red-600 hover:text-red-800">
+                                Disconnect LinkedIn
+                            </button>
+                        </form>
                         {% else %}
-                            Not connected to LinkedIn
-                        {% endif %}
-                    </p>
-                </div>
-                <div>
-                    {% if current_user.linkedin_authorized %}
-                        <div class="flex space-x-2">
-                            <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                                Connected
-                            </span>
-                            <a href="{{ url_for('auth.linkedin_disconnect') }}"
-                               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                                Disconnect
-                            </a>
-                        </div>
-                    {% else %}
-                        <a href="{{ url_for('auth.linkedin_connect') }}"
-                           class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                        <p class="text-gray-600">Not connected to LinkedIn</p>
+                        <a
+                            href="{{ url_for('auth.linkedin_connect') }}"
+                            class="mt-2 inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                        >
                             Connect LinkedIn
                         </a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- X Connection Status -->
-        <div class="bg-white py-6 px-4 shadow sm:rounded-lg sm:px-10 mb-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h3 class="text-lg font-medium text-gray-900">X (Twitter) Connection</h3>
-                    <p class="mt-1 text-sm text-gray-500">
-                        {% if current_user.x_authorized %}
-                            Connected to X
-                        {% else %}
-                            Not connected to X
                         {% endif %}
-                    </p>
-                </div>
-                <div>
-                    {% if current_user.x_authorized %}
-                        <div class="flex space-x-2">
-                            <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                                Connected
-                            </span>
-                            <a href="{{ url_for('auth.x_disconnect') }}"
-                               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                                Disconnect
-                            </a>
-                        </div>
-                    {% else %}
-                        <a href="{{ url_for('auth.x_connect') }}"
-                           class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-gray-800">
-                            Connect X
-                        </a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Authentication Source -->
-        <div class="bg-white py-6 px-4 shadow sm:rounded-lg sm:px-10 mb-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h3 class="text-lg font-medium text-gray-900">Authentication Type</h3>
-                    <p class="mt-1 text-sm text-gray-500">
-                        {% if current_user.auth_type == 'okta' %}
-                            Using Company SSO (Okta)
-                        {% else %}
-                            Using email/password authentication
-                        {% endif %}
-                    </p>
-                </div>
-                <div>
-                    {% if current_user.auth_type == 'okta' %}
-                        <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                            SSO
-                        </span>
-                    {% else %}
-                        <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
-                            Password
-                        </span>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Authorization Check Modal -->
-        <div id="authCheckModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 overflow-y-auto">
-            <div class="flex items-center justify-center min-h-screen">
-                <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">
-                        Connecting to LinkedIn
-                    </h3>
-                    <p class="text-gray-500 mb-4">
-                        Please complete the authorization in the new window. This window will automatically close when authorization is complete.
-                    </p>
-                    <div class="flex justify-center">
-                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     </div>
                 </div>
             </div>
-        </div>
-
-        <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <form class="space-y-6" action="{{ url_for('auth.profile') }}" method="POST">
-                <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700">
-                        Full name
-                    </label>
-                    <div class="mt-1">
-                        <input id="name" name="name" type="text" required
-                            value="{{ current_user.name }}"
-                            class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                </div>
-
-                <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700">
-                        Email address
-                    </label>
-                    <div class="mt-1">
-                        <input id="email" name="email" type="email" required
-                            value="{{ current_user.email }}"
-                            class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                </div>
-
-                <div>
-                    <label for="bio" class="block text-sm font-medium text-gray-700">
-                        About You
-                    </label>
-                    <div class="mt-1">
-                        <textarea id="bio" name="bio" rows="4"
-                            class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            placeholder="Example: I'm a senior security engineer with 10 years of experience in application security. I focus on helping developers build secure applications and often speak at security conferences. My communication style is technical but approachable, and I like to use real-world examples to explain complex security concepts.">{{ current_user.bio or '' }}</textarea>
-                        <p class="mt-2 text-sm text-gray-500">
-                            This information will help personalize your social media posts. Include your role, expertise, communication style, and any specific areas you focus on.
-                        </p>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h3 class="text-lg font-medium text-gray-900">Autonomous Mode</h3>
-                            <p class="mt-1 text-sm text-gray-500">
-                                When enabled, we'll automatically generate and post to your connected social accounts whenever new episodes are added.
-                            </p>
-                        </div>
-                        <div class="relative inline-flex items-center">
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="checkbox" name="autonomous_mode" id="autonomous_mode" 
-                                       value="on"
-                                       {% if current_user.autonomous_mode %}checked{% endif %}
-                                       class="sr-only peer">
-                                <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="mt-1">
-                        <p class="text-sm text-gray-500">
-                            Note: You must have at least one social account connected for this feature to work.
-                        </p>
-                    </div>
-                </div>
-
-                {% if current_user.auth_type != 'okta' %}
-                <div class="space-y-1">
-                    <h3 class="text-lg font-medium leading-6 text-gray-900">Change Password</h3>
-                    <p class="mt-1 text-sm text-gray-500">Leave blank if you don't want to change your password.</p>
-                </div>
-
-                <div>
-                    <label for="current_password" class="block text-sm font-medium text-gray-700">
-                        Current Password
-                    </label>
-                    <div class="mt-1">
-                        <input id="current_password" name="current_password" type="password"
-                            class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                </div>
-
-                <div>
-                    <label for="new_password" class="block text-sm font-medium text-gray-700">
-                        New Password
-                    </label>
-                    <div class="mt-1">
-                        <input id="new_password" name="new_password" type="password"
-                            class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                </div>
-                {% endif %}
-
-                <div>
-                    <button type="submit"
-                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                        Update Profile
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
-
-<script>
-function checkAuthStatus() {
-    fetch('{{ url_for("auth.check_linkedin_auth") }}')
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'completed') {
-                window.location.reload();
-            } else {
-                setTimeout(checkAuthStatus, 2000);
-            }
-        })
-        .catch(error => {
-            console.error('Error checking auth status:', error);
-        });
-}
-
-// Show modal and start checking status when returning from auth
-if (window.location.hash === '#checking-auth') {
-    document.getElementById('authCheckModal').classList.remove('hidden');
-    checkAuthStatus();
-}
-</script>
 {% endblock %} 

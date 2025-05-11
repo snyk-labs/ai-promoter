@@ -16,12 +16,9 @@ from extensions import db
 from models import User
 from helpers.arcade import (
     start_linkedin_auth,
-    start_x_auth,
     check_auth_status,
     post_to_linkedin,
-    post_to_x,
     LINKEDIN_TOOL,
-    X_TOOL,
 )
 from helpers.openai import validate_post_length
 
@@ -188,11 +185,9 @@ def linkedin_post():
             return jsonify({"success": False, "error": "Post content is required"})
 
         # Validate post length
-        is_valid_for_twitter, is_valid_for_linkedin, length = validate_post_length(
-            post_content
-        )
+        is_valid, length = validate_post_length(post_content, "linkedin")
 
-        if not is_valid_for_linkedin:
+        if not is_valid:
             return jsonify(
                 {
                     "success": False,
@@ -215,115 +210,16 @@ def linkedin_post():
         return jsonify({"success": False, "error": str(e)})
 
 
-@bp.route("/x/connect")
-@login_required
-def x_connect():
-    """Start X/Twitter authentication process."""
-    try:
-        auth_result = start_x_auth(current_user)
-
-        # Redirect user to X/Twitter authorization page if needed
-        if auth_result["status"] == "pending":
-            return redirect(auth_result["url"])
-        else:
-            # Update user status
-            current_user.x_authorized = True
-            db.session.commit()
-            flash("X/Twitter connection successful!", "success")
-            return redirect(url_for("auth.profile"))
-    except Exception as e:
-        flash(f"Error connecting to X/Twitter: {str(e)}", "error")
-        return redirect(url_for("auth.profile"))
-
-
-@bp.route("/x/check-auth")
-@login_required
-def check_x_auth():
-    """Check if user is authenticated with X/Twitter."""
-    try:
-        # Check if user has X/Twitter token
-        is_authenticated = check_auth_status(current_user, X_TOOL)
-
-        # Update user status if authenticated
-        if is_authenticated and not current_user.x_authorized:
-            current_user.x_authorized = True
-            db.session.commit()
-
-        return jsonify(
-            {
-                "authenticated": is_authenticated,
-                "status": "completed" if is_authenticated else "pending",
-            }
-        )
-    except Exception as e:
-        return jsonify({"authenticated": False, "error": str(e)})
-
-
-@bp.route("/x/post", methods=["POST"])
-@login_required
-def x_post():
-    """Post content to X/Twitter."""
-    try:
-        # Get post content
-        data = request.get_json()
-        post_content = data.get("post")
-
-        if not post_content:
-            return jsonify({"success": False, "error": "Post content is required"})
-
-        # Validate post length
-        is_valid_for_twitter, is_valid_for_linkedin, length = validate_post_length(
-            post_content
-        )
-
-        if not is_valid_for_twitter:
-            return jsonify(
-                {
-                    "success": False,
-                    "error": f"Post exceeds Twitter character limit ({length} characters)",
-                }
-            )
-
-        # Post to X/Twitter
-        result = post_to_x(current_user, post_content)
-
-        if result.get("success"):
-            return jsonify(
-                {"success": True, "message": "Posted to X/Twitter successfully!"}
-            )
-        else:
-            return jsonify(
-                {"success": False, "error": result.get("error", "Unknown error")}
-            )
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
-
-
 @bp.route("/linkedin/disconnect")
 @login_required
 def linkedin_disconnect():
-    """Disconnect LinkedIn integration."""
+    """Disconnect LinkedIn account."""
     try:
         # Update user status
         current_user.linkedin_authorized = False
+        current_user.linkedin_token = None
         db.session.commit()
-        flash("LinkedIn disconnected successfully!", "success")
+        flash("LinkedIn account disconnected successfully!", "success")
     except Exception as e:
-        flash(f"Error disconnecting LinkedIn: {str(e)}", "error")
-
-    return redirect(url_for("auth.profile"))
-
-
-@bp.route("/x/disconnect")
-@login_required
-def x_disconnect():
-    """Disconnect X/Twitter integration."""
-    try:
-        # Update user status
-        current_user.x_authorized = False
-        db.session.commit()
-        flash("X/Twitter disconnected successfully!", "success")
-    except Exception as e:
-        flash(f"Error disconnecting X/Twitter: {str(e)}", "error")
-
+        flash(f"Error disconnecting LinkedIn account: {str(e)}", "error")
     return redirect(url_for("auth.profile"))

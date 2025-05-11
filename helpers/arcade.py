@@ -22,7 +22,6 @@ def get_arcade_client():
 
 
 LINKEDIN_TOOL = "LinkedIn.CreateTextPost"
-X_TOOL = "X.PostTweet"
 
 
 def start_linkedin_auth(user):
@@ -56,44 +55,13 @@ def start_linkedin_auth(user):
         raise ValueError(f"Failed to start LinkedIn authorization: {str(e)}")
 
 
-def start_x_auth(user):
-    """
-    Start X (Twitter) authorization process through Arcade.
-
-    Args:
-        user: The user object to authorize
-
-    Returns:
-        A dictionary with authorization status and redirect URL if needed
-    """
-    try:
-        # Get the Arcade client
-        client = get_arcade_client()
-
-        auth_response = client.tools.authorize(
-            tool_name=X_TOOL,
-            user_id=user.email,
-        )
-
-        if auth_response.status != "completed":
-            logger.info(f"X auth started for user {user.email}")
-            return {"status": "pending", "url": auth_response.url}
-        else:
-            user.x_authorized = True
-            logger.info(f"X auth completed for user {user.email}")
-            return {"status": "completed"}
-    except Exception as e:
-        logger.error(f"Error starting X auth for user {user.email}: {str(e)}")
-        raise ValueError(f"Failed to start X authorization: {str(e)}")
-
-
 def check_auth_status(user, tool_name):
     """
     Check if authorization is complete for the specified tool.
 
     Args:
         user: The user object to check authorization for
-        tool_name: The name of the tool to check (LINKEDIN_TOOL or X_TOOL)
+        tool_name: The name of the tool to check (LINKEDIN_TOOL)
 
     Returns:
         Boolean indicating if authorization is complete
@@ -144,36 +112,3 @@ def post_to_linkedin(user, content):
     except Exception as e:
         logger.error(f"Failed to post to LinkedIn for user {user.email}: {str(e)}")
         raise ValueError(f"Failed to post to LinkedIn: {str(e)}")
-
-
-def post_to_x(user, content):
-    """
-    Post content to X (Twitter) using Arcade.
-
-    Args:
-        user: The user object with authorization
-        content: The content to post to X (Twitter)
-
-    Returns:
-        Response from the Arcade API
-
-    Raises:
-        ValueError: If X is not authorized or posting fails
-    """
-    if not user.x_authorized:
-        logger.warning(f"Attempted to post to X for unauthorized user {user.email}")
-        raise ValueError("X not authorized")
-
-    try:
-        # Get the Arcade client
-        client = get_arcade_client()
-
-        logger.info(f"Posting to X for user {user.email}")
-        response = client.tools.execute(
-            tool_name=X_TOOL, input={"tweet_text": content}, user_id=user.email
-        )
-        logger.info(f"Successfully posted to X for user {user.email}")
-        return response
-    except Exception as e:
-        logger.error(f"Failed to post to X for user {user.email}: {str(e)}")
-        raise ValueError(f"Failed to post to X: {str(e)}")

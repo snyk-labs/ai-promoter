@@ -70,15 +70,21 @@ def get_paginated_content():
     # Convert items to dict
     items = []
     for item in pagination.items:
+        created_at_iso = None
+        if item.created_at:
+            # Ensure created_at is timezone-aware (UTC) before converting to ISO string
+            aware_created_at = item.created_at.replace(tzinfo=datetime.timezone.utc)
+            created_at_iso = aware_created_at.isoformat()
+
         items.append({
             "id": item.id,
-            "content_type": item.content_type,
             "title": item.title,
-            "description": item.description,
+            "excerpt": item.excerpt,
             "image_url": item.image_url,
             "publish_date": item.publish_date.isoformat() if item.publish_date else None,
             "url": item.url,
-            "author": item.author
+            "created_at": created_at_iso,
+            "submitted_by": {"name": item.submitted_by.name} if item.submitted_by else None 
         })
 
     return jsonify({

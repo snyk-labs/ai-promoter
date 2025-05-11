@@ -4,17 +4,20 @@
 <div class="container mx-auto px-4 py-8">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for item in content_items %}
-        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
             {% if item.image_url %}
             <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full h-48 object-cover">
                 {% endif %}
-            <div class="p-6">
+            <div class="p-6 flex flex-col flex-grow">
                 <h2 class="text-xl font-semibold mb-2">{{ item.title }}</h2>
                 {% if item.submitted_by %}
                 <p class="text-sm text-gray-500 mb-2">Submitted by: {{ item.submitted_by.name }}</p>
                 {% endif %}
-                <p class="text-gray-600 mb-4">{{ item.excerpt or '' }}</p>
-                <div class="flex justify-between items-center space-x-2">
+                {% if item.created_at %}
+                <p class="text-sm text-gray-500 mb-2 submitted-date-jinja" data-iso-date="{{ item.created_at.isoformat() }}">Submitted on: Loading...</p>
+                {% endif %}
+                <p class="text-gray-600 mb-4 flex-grow">{{ item.excerpt or '' }}</p>
+                <div class="flex justify-between items-center space-x-2 mt-auto">
                     <button onclick="window.open('{{ item.url }}', '_blank')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">View Content</button>
                     {% if current_user.is_admin %}
                     <button 
@@ -134,6 +137,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const contentId = this.dataset.contentId;
             showPromoteModal(contentType, contentId);
         });
+    });
+
+    // Format dates on initial load
+    document.querySelectorAll('.submitted-date-jinja').forEach(el => {
+        const isoDate = el.dataset.isoDate;
+        if (isoDate) {
+            el.textContent = `Submitted on: ${formatDateWithUserTimezone(isoDate)}`;
+        }
     });
 
     // Add event listener for load more button
@@ -262,15 +273,16 @@ async function loadMoreContent() {
 
 function createContentCard(item) {
     const card = document.createElement('div');
-    card.className = 'bg-white rounded-lg shadow-md overflow-hidden';
+    card.className = 'bg-white rounded-lg shadow-md overflow-hidden flex flex-col';
     
     card.innerHTML = `
         ${item.image_url ? `<img src="${item.image_url}" alt="${item.title}" class="w-full h-48 object-cover">` : ''}
-        <div class="p-6">
+        <div class="p-6 flex flex-col flex-grow">
             <h2 class="text-xl font-semibold mb-2">${item.title}</h2>
             ${item.submitted_by ? `<p class="text-sm text-gray-500 mb-2">Submitted by: ${item.submitted_by.name}</p>` : ''}
-            ${item.excerpt ? `<p class="text-gray-600 mb-4">${item.excerpt || ''}</p>` : ''}
-            <div class="flex justify-between items-center space-x-2">
+            ${item.created_at ? `<p class="text-sm text-gray-500 mb-2">Submitted on: ${formatDateWithUserTimezone(item.created_at)}</p>` : ''}
+            <p class="text-gray-600 mb-4 flex-grow">${item.excerpt || ''}</p>
+            <div class="flex justify-between items-center space-x-2 mt-auto">
                 <button onclick="window.open('${item.url}', '_blank')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">View Content</button>
                 ${ current_user.is_admin ? `
                 <button 
@@ -408,5 +420,42 @@ document.querySelectorAll('.edit-btn').forEach(button => {
         showEditModal(contentId, title, excerpt, url, imageUrl, context);
     });
 });
+
+function formatDateWithUserTimezone(isoDateString) {
+    try {
+        const date = new Date(isoDateString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+
+        // Get timezone abbreviation
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        let timeZoneAbbreviation = '';
+        // This is a common way to get an abbreviation, but it can be tricky and not always perfect.
+        // For a more robust solution, a library might be needed, but this covers common cases.
+        try {
+            const longFormat = new Intl.DateTimeFormat('en-US', { timeZoneName:'short', timeZone }).format(date);
+            const match = longFormat.match(/([A-Z]{3,5})$/);
+            if (match) {
+                timeZoneAbbreviation = match[1];
+            } else {
+                // Fallback for environments/browsers where the above doesn't work as expected
+                timeZoneAbbreviation = timeZone; // Show full timezone name if abbreviation fails
+            }
+        } catch (e) {
+            timeZoneAbbreviation = 'UTC'; // Fallback to UTC if timezone detection fails
+        }
+
+        return `${year}-${month}-${day} (${timeZoneAbbreviation})`;
+    } catch (error) {
+        console.error("Error formatting date:", error, "Input:", isoDateString);
+        // Fallback for invalid date string
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day} (UTC)`; 
+    }
+}
 </script>
 {% endblock %} 

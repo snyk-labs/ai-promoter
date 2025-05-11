@@ -4,6 +4,7 @@ from models.content import Content
 from sqlalchemy import desc
 import logging # Added for debugging
 from extensions import db # Corrected import for db
+from datetime import timezone # Import timezone
 
 # Create a blueprint for main routes
 bp = Blueprint("main", __name__)
@@ -15,7 +16,18 @@ def index():
     db.session.expire_all()
     
     # Get the first page of content items
-    content_items = Content.query.order_by(desc(Content.created_at)).limit(12).all()
+    content_items_query = Content.query.order_by(desc(Content.created_at)).limit(12).all()
+    
+    # Make created_at timezone-aware for template rendering
+    content_items = []
+    for item in content_items_query:
+        if item.created_at:
+            item.created_at = item.created_at.replace(tzinfo=timezone.utc)
+        # Assuming publish_date might also be naive UTC and needs similar handling if displayed directly in Jinja
+        if item.publish_date: # Add this block if publish_date is also naive UTC
+            item.publish_date = item.publish_date.replace(tzinfo=timezone.utc)
+        content_items.append(item)
+    
     has_more_content = Content.query.count() > 12
     
     # Debugging: Log the fetched content items, especially the excerpt of item 1 if it exists

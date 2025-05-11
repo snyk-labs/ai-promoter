@@ -2,6 +2,8 @@ from flask import Blueprint, render_template, jsonify, request
 from flask_login import current_user
 from models.content import Content
 from sqlalchemy import desc
+import logging # Added for debugging
+from extensions import db # Corrected import for db
 
 # Create a blueprint for main routes
 bp = Blueprint("main", __name__)
@@ -9,9 +11,21 @@ bp = Blueprint("main", __name__)
 
 @bp.route("/")
 def index():
+    # Expire all instances to ensure fresh data from DB
+    db.session.expire_all()
+    
     # Get the first page of content items
     content_items = Content.query.order_by(desc(Content.created_at)).limit(12).all()
     has_more_content = Content.query.count() > 12
+    
+    # Debugging: Log the fetched content items, especially the excerpt of item 1 if it exists
+    if content_items:
+        for item in content_items:
+            if item.id == 1: # Assuming you are testing with content_id = 1 as per logs
+                logging.info(f"Index route: Fetched content id 1 with excerpt: '{item.excerpt}'")
+            # You might want to log all items or be more specific based on your testing
+    else:
+        logging.info("Index route: No content items fetched.")
     
     return render_template('index.html', 
                          content_items=content_items,

@@ -13,11 +13,23 @@
                 {% if item.submitted_by %}
                 <p class="text-sm text-gray-500 mb-2">Submitted by: {{ item.submitted_by.name }}</p>
                 {% endif %}
-                {% if item.excerpt %}
-                <p class="text-gray-600 mb-4">{{ item.excerpt }}</p>
-                {% endif %}
+                <p class="text-gray-600 mb-4">{{ item.excerpt or '' }}</p>
                 <div class="flex justify-between items-center">
                     <a href="{{ item.url }}" target="_blank" class="text-blue-600 hover:text-blue-800">View Content</a>
+                    {% if current_user.is_admin %}
+                    <button 
+                        class="edit-btn"
+                        data-content-id="{{ item.id }}"
+                        data-content-type="{{ item.content_type }}"
+                        data-title="{{ item.title }}"
+                        data-excerpt="{{ item.excerpt }}"
+                        data-url="{{ item.url }}"
+                        data-image-url="{{ item.image_url }}"
+                        data-context="{{ item.context or '' }}"
+                    >
+                        Edit
+                    </button>
+                    {% endif %}
                     <button 
                         class="promote-btn"
                         data-content-type="{{ item.content_type }}"
@@ -68,6 +80,44 @@
             </button>
         </div>
     </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg p-8 max-w-lg w-full mx-4">
+        <h2 class="text-2xl font-bold mb-4">Edit Content</h2>
+        <form id="editForm" class="space-y-4">
+            <input type="hidden" id="editContentId" name="content_id">
+            <div>
+                <label for="editTitle" class="block text-sm font-medium text-gray-700">Title</label>
+                <input type="text" id="editTitle" name="title" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label for="editExcerpt" class="block text-sm font-medium text-gray-700">Excerpt</label>
+                <textarea id="editExcerpt" name="excerpt" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+            </div>
+            <div>
+                <label for="editUrl" class="block text-sm font-medium text-gray-700">URL</label>
+                <input type="text" id="editUrl" name="url" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label for="editImageUrl" class="block text-sm font-medium text-gray-700">Image URL</label>
+                <input type="text" id="editImageUrl" name="image_url" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label for="editContext" class="block text-sm font-medium text-gray-700">Context</label>
+                <textarea id="editContext" name="context" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Additional context for this content..."></textarea>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="toast" class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded shadow-lg hidden">
+    Content updated successfully!
 </div>
 
 <script>
@@ -223,6 +273,19 @@ function createContentCard(item) {
             ${item.excerpt ? `<p class="text-gray-600 mb-4">${item.excerpt}</p>` : ''}
             <div class="flex justify-between items-center">
                 <a href="${item.url}" target="_blank" class="text-blue-600 hover:text-blue-800">View Content</a>
+                ${ current_user.is_admin ? `
+                <button 
+                    class="edit-btn"
+                    data-content-id="${item.id}"
+                    data-title="${item.title}"
+                    data-excerpt="${item.excerpt || ''}"
+                    data-url="${item.url}"
+                    data-image-url="${item.image_url || ''}"
+                    data-context="${item.context || ''}"
+                >
+                    Edit
+                </button>
+                ` : '' }
                 <button 
                     class="promote-btn"
                     data-content-type="${item.content_type}"
@@ -240,8 +303,111 @@ function createContentCard(item) {
         const contentId = this.dataset.contentId;
         showPromoteModal(contentType, contentId);
     });
+
+    // Add event listener to the new edit button (if it exists)
+    const editBtn = card.querySelector('.edit-btn');
+    if (editBtn) {
+        editBtn.addEventListener('click', function() {
+            const contentId = this.dataset.contentId;
+            const title = this.dataset.title;
+            const excerpt = this.dataset.excerpt;
+            const url = this.dataset.url;
+            const imageUrl = this.dataset.imageUrl;
+            const context = this.dataset.context;
+            showEditModal(contentId, title, excerpt, url, imageUrl, context);
+        });
+    }
     
     return card;
 }
+
+function showEditModal(contentId, title, excerpt, url, imageUrl, context) {
+    document.getElementById('editContentId').value = contentId;
+    document.getElementById('editTitle').value = title;
+    document.getElementById('editExcerpt').value = excerpt;
+    document.getElementById('editUrl').value = url;
+    document.getElementById('editImageUrl').value = imageUrl;
+    document.getElementById('editContext').value = context;
+    document.getElementById('editModal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').classList.add('hidden');
+}
+
+document.getElementById('editForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const contentId = document.getElementById('editContentId').value;
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+    
+    // Remove content_id from the data since it's in the URL
+    delete data.content_id;
+    
+    try {
+        const response = await fetch(`/api/content/${contentId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to update content');
+        }
+        
+        // Log the response for debugging
+        const responseData = await response.json();
+        console.log('Update response:', responseData);
+        
+        const toast = document.getElementById('toast');
+        toast.classList.remove('hidden');
+        setTimeout(() => {
+            toast.classList.add('hidden');
+        }, 3000);
+        closeEditModal();
+        
+        // Update the content card dynamically
+        const contentCard = document.querySelector(`[data-content-id="${contentId}"]`).closest('.bg-white');
+        if (contentCard) {
+            const titleElement = contentCard.querySelector('h2');
+            const excerptElement = contentCard.querySelector('p.text-gray-600');
+            const urlElement = contentCard.querySelector('a[target="_blank"]');
+            const imageElement = contentCard.querySelector('img');
+            
+            if (titleElement) titleElement.textContent = data.title;
+            if (excerptElement) excerptElement.textContent = data.excerpt;
+            if (urlElement) urlElement.href = data.url;
+            if (imageElement && data.image_url) imageElement.src = data.image_url;
+            
+            // Update the data attributes on the edit button
+            const editButton = contentCard.querySelector('.edit-btn');
+            if (editButton) {
+                editButton.dataset.title = data.title;
+                editButton.dataset.excerpt = data.excerpt;
+                editButton.dataset.url = data.url;
+                editButton.dataset.imageUrl = data.image_url;
+                editButton.dataset.context = data.context || '';
+            }
+        }
+    } catch (error) {
+        console.error('Error updating content:', error);
+        alert('Failed to update content. Please try again.');
+    }
+});
+
+// Add event listeners for edit buttons
+document.querySelectorAll('.edit-btn').forEach(button => {
+    button.addEventListener('click', function() {
+        const contentId = this.dataset.contentId;
+        const title = this.dataset.title;
+        const excerpt = this.dataset.excerpt;
+        const url = this.dataset.url;
+        const imageUrl = this.dataset.imageUrl;
+        const context = this.dataset.context;
+        showEditModal(contentId, title, excerpt, url, imageUrl, context);
+    });
+});
 </script>
 {% endblock %} 

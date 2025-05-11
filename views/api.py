@@ -10,6 +10,7 @@ from helpers.openai import (
 from helpers.prompt_templates import get_platform_config
 from datetime import datetime
 import logging
+from extensions import db # Import the shared db instance
 
 # Create a blueprint for API routes
 bp = Blueprint("api", __name__, url_prefix="/api")
@@ -87,3 +88,42 @@ def get_paginated_content():
         "current_page": page,
         "has_next": pagination.has_next
     })
+
+
+@bp.route("/content/<int:content_id>", methods=["PUT"])
+@login_required
+def update_content(content_id):
+    """Update a content item. Only accessible to admin users."""
+    if not current_user.is_admin:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    content = Content.query.get_or_404(content_id)
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    logging.info(f"Updating content {content_id} with data: {data}")
+    logging.info(f"Content before update: {content.__dict__}")
+
+    # Update fields if provided
+    if "title" in data:
+        content.title = data["title"]
+    if "excerpt" in data:
+        content.excerpt = data["excerpt"]
+    if "url" in data:
+        content.url = data["url"]
+    if "image_url" in data:
+        content.image_url = data["image_url"]
+    if "context" in data:
+        content.context = data["context"]
+
+    try:
+        db.session.flush()       # Try to force a flush to the DB connection
+        db.session.commit()
+        logging.info(f"Content after update: {content.__dict__}")
+        return jsonify({"message": "Content updated successfully"})
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error updating content: {str(e)}")
+        return jsonify({"error": "Failed to update content"}), 500

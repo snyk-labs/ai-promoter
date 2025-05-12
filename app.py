@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from datetime import datetime
+import click
 
 # Configure logging to output to STDOUT with a more detailed format
 logging.basicConfig(
@@ -155,6 +156,13 @@ def create_app():
     app.cli.add_command(init_db)
     app.cli.add_command(list_routes)
     app.cli.add_command(create_admin)
+
+    @app.cli.command("worker")
+    @click.option('--loglevel', default='info', help='Log level (debug/info/warning/error)')
+    def worker(loglevel):
+        """Run the Celery worker."""
+        from make_celery import celery
+        celery.worker_main(['worker', f'--loglevel={loglevel}'])
 
     @app.before_request
     def before_request():

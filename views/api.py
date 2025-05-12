@@ -9,6 +9,10 @@ from helpers.prompts import get_platform_config
 from datetime import datetime
 import logging
 from extensions import db # Import the shared db instance
+from tasks.promote import generate_social_media_post_task # Import the new Celery task
+from celery.result import AsyncResult # To check task status
+
+logger = logging.getLogger(__name__) # Initialize the logger for this module
 
 # Create a blueprint for API routes
 bp = Blueprint("api", __name__, url_prefix="/api")
@@ -17,31 +21,68 @@ bp = Blueprint("api", __name__, url_prefix="/api")
 @bp.route("/promote/<int:content_id>", methods=["POST"])
 @login_required
 def promote_content(content_id):
-    """Generate social media posts for a content item."""
+    """Dispatch a Celery task to generate social media posts for a content item."""
     try:
+        # Ensure content exists, though the task will also check
         content = Content.query.get_or_404(content_id)
         
-        post_generator = SocialPostGenerator()
-        generated_posts = post_generator.generate_all_platform_posts(content, current_user)
-
-        linkedin_post = generated_posts.get("linkedin")
-        warnings = []
-
-        if linkedin_post is None:
-            warnings.append("LinkedIn: Post generation failed.")
-        else:
-            is_valid, length = validate_post_length(linkedin_post, "linkedin")
-            if not is_valid:
-                warnings.append(f"LinkedIn: Post may exceed character limit ({length} characters). Please review and edit if necessary.")
-
+        # Dispatch the Celery task
+        # Pass current_user.id instead of the full user object
+        task = generate_social_media_post_task.delay(content_id=content.id, user_id=current_user.id)
+        
+        logger.info(f"Dispatched generate_social_media_post_task for content_id: {content_id}, task_id: {task.id}")
+        
+        # Return the task ID to the client for polling
         return jsonify({
-            "linkedin": linkedin_post,
-            "warnings": warnings
-        })
+            "task_id": task.id,
+            "message": "Social media post generation has started.",
+            "content_id": content.id # Keep content_id for client-side reference if needed
+        }), 202 # Accepted
 
     except Exception as e:
-        logging.error(f"Error in promote_content endpoint for content {content_id}: {str(e)}")
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+        logger.error(f"Error dispatching promotion task for content {content_id}: {str(e)}")
+        return jsonify({"error": f"An unexpected error occurred while starting post generation: {str(e)}"}), 500
+
+
+@bp.route("/promote_task_status/<task_id>", methods=["GET"])
+@login_required
+def promote_task_status(task_id):
+    """Check the status of a generate_social_media_post_task."""
+    logger.info(f"Checking promote_task_status for task_id: {task_id}")
+    task = generate_social_media_post_task.AsyncResult(task_id)
+    
+    response_data = {
+        'task_id': task_id,
+        'status': task.state
+    }
+    
+    try:
+        logger.debug(f"Promote task {task_id} state: {task.state}")
+
+        if task.state == 'PENDING':
+            response_data['message'] = 'Post generation is pending.'
+        elif task.state == 'FAILURE':
+            response_data['message'] = f"Post generation failed: {str(task.info)}"
+            logger.error(f"Promote task {task_id} FAILED. Info: {task.info}")
+        elif task.state == 'SUCCESS':
+            response_data['message'] = 'Post generation completed successfully.'
+            result = task.result
+            response_data['linkedin'] = result.get('linkedin')
+            response_data['warnings'] = result.get('warnings')
+            response_data['content_id'] = result.get('content_id') # From task result
+            logger.info(f"Promote task {task_id} SUCCEEDED. Result: {result}")
+        else:
+            response_data['message'] = f"Task is in an unknown state: {task.state}"
+            logger.warning(f"Promote task {task_id} is in an UNKNOWN state: {task.state}. Info: {task.info}")
+
+    except Exception as e:
+        logger.exception(f"Unexpected error in promote_task_status for task_id {task_id}")
+        response_data['status'] = 'ERROR'
+        response_data['message'] = f"An server error occurred: {str(e)}"
+        return jsonify(response_data), 500
+
+    logger.debug(f"Returning promote_task_status response for {task_id}: {response_data}")
+    return jsonify(response_data)
 
 
 @bp.route("/content")

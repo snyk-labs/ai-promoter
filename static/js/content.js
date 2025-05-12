@@ -461,4 +461,89 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('editModal').classList.add('hidden');
     };
 
+    async function postToLinkedIn() {
+        const postContent = document.getElementById('linkedinContentEditable').value;
+        if (!postContent) {
+            showToast('Please enter content to post', 'error');
+            return;
+        }
+
+        try {
+            // Show loading state
+            const postButton = document.querySelector('button[onclick="postToLinkedIn()"]');
+            const originalButtonText = postButton.textContent;
+            postButton.textContent = 'Posting...';
+            postButton.disabled = true;
+
+            // Start the LinkedIn posting process
+            const response = await fetch('/auth/linkedin/post', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    post: postContent,
+                    content_id: currentContentId
+                })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to start LinkedIn posting');
+            }
+
+            showToast('LinkedIn post started!', 'info');
+            
+            // Start polling for task status
+            pollLinkedInPostStatus(data.task_id);
+
+        } catch (error) {
+            console.error('Error posting to LinkedIn:', error);
+            showToast(error.message || 'Failed to post to LinkedIn', 'error');
+            
+            // Reset button state
+            const postButton = document.querySelector('button[onclick="postToLinkedIn()"]');
+            postButton.textContent = 'Post to LinkedIn';
+            postButton.disabled = false;
+        }
+    }
+
+    async function pollLinkedInPostStatus(taskId) {
+        try {
+            const response = await fetch(`/api/promote_task_status/${taskId}`);
+            const data = await response.json();
+
+            if (data.status === 'SUCCESS') {
+                showToast(data.message || 'Posted to LinkedIn successfully!', 'success');
+                
+                // Reset button state
+                const postButton = document.querySelector('button[onclick="postToLinkedIn()"]');
+                postButton.textContent = 'Post to LinkedIn';
+                postButton.disabled = false;
+
+                // Close the modal after successful posting
+                setTimeout(() => {
+                    closePromoteModal();
+                }, 2000);
+            } else if (data.status === 'FAILURE') {
+                throw new Error(data.message || 'LinkedIn posting failed');
+            } else {
+                // Continue polling
+                setTimeout(() => pollLinkedInPostStatus(taskId), 3000);
+            }
+        } catch (error) {
+            console.error('Error polling LinkedIn post status:', error);
+            showToast(error.message || 'Error checking LinkedIn post status', 'error');
+            
+            // Reset button state
+            const postButton = document.querySelector('button[onclick="postToLinkedIn()"]');
+            postButton.textContent = 'Post to LinkedIn';
+            postButton.disabled = false;
+        }
+    }
+
+    // Expose postToLinkedIn globally for inline onclick usage
+    window.postToLinkedIn = postToLinkedIn;
+
 }); 

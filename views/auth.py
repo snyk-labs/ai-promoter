@@ -177,7 +177,7 @@ def check_linkedin_auth():
 @bp.route("/linkedin/post", methods=["POST"])
 @login_required
 def linkedin_post():
-    """Post content to LinkedIn."""
+    """Post content to LinkedIn asynchronously."""
     try:
         # Get post content and content ID
         data = request.get_json()
@@ -201,21 +201,15 @@ def linkedin_post():
                 }
             )
 
-        # Post to LinkedIn
-        response = post_to_linkedin(current_user, post_content)
+        # Dispatch Celery task for LinkedIn posting
+        from tasks.promote import post_to_linkedin_task
+        task = post_to_linkedin_task.delay(current_user.id, content_id, post_content)
 
-        # Create Share record
-        share = Share(
-            user_id=current_user.id,
-            content_id=content_id,
-            platform='linkedin',
-            post_content=post_content,
-            post_url=response.get('url') if response and 'url' in response else None
-        )
-        db.session.add(share)
-        db.session.commit()
-
-        return jsonify({"success": True, "message": "Posted to LinkedIn successfully!"})
+        return jsonify({
+            "success": True,
+            "message": "LinkedIn post started!",
+            "task_id": task.id
+        })
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})

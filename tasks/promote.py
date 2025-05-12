@@ -53,6 +53,56 @@ def generate_social_media_post_task(self, content_id: int, user_id: int):
         # This will mark the task as FAILED and store the exception info
         raise self.retry(exc=e, countdown=self.default_retry_delay * (2 ** self.request.retries))
 
+@shared_task(bind=True, ignore_result=False, max_retries=3, default_retry_delay=60)
+def post_to_linkedin_task(self, user_id: int, content_id: int, post_content: str):
+    """
+    Celery task to post content to LinkedIn for a given user.
+    
+    Args:
+        user_id: The ID of the user posting the content
+        content_id: The ID of the content being posted about
+        post_content: The content to post to LinkedIn
+    """
+    try:
+        from models import User, Content, Share
+        from helpers.arcade import post_to_linkedin
+        
+        user = User.query.get(user_id)
+        content = Content.query.get(content_id)
+
+        if not user:
+            raise ValueError(f"User with ID {user_id} not found.")
+        if not content:
+            raise ValueError(f"Content with ID {content_id} not found.")
+        if not user.linkedin_authorized:
+            raise ValueError("User is not authorized to post to LinkedIn.")
+
+        logger.info(f"Starting LinkedIn post for user_id: {user_id}, content_id: {content_id}")
+
+        # Post to LinkedIn
+        response = post_to_linkedin(user, post_content)
+
+        # Create Share record
+        share = Share(
+            user_id=user_id,
+            content_id=content_id,
+            platform='linkedin',
+            post_content=post_content,
+            post_url=response.get('url') if response and 'url' in response else None
+        )
+        db.session.add(share)
+        db.session.commit()
+
+        return {
+            "status": "SUCCESS",
+            "message": "Posted to LinkedIn successfully!",
+            "post_url": response.get('url') if response and 'url' in response else None
+        }
+
+    except Exception as e:
+        logger.error(f"Error posting to LinkedIn: {str(e)}")
+        raise self.retry(exc=e)
+
 # To ensure this task is discoverable by Celery, you might need to import this module
 # in your main celery_app.py or within the `include` list of your Celery app.
 # Example in celery_app.py:

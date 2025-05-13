@@ -15,9 +15,9 @@ from flask import Flask, g, session
 from celery import Celery # Import Celery class
 from celery import Task as CeleryTask
 
-from extensions import db, login_manager, migrate
+from extensions import db, login_manager, migrate, mail, redis_client
 from models import User
-from cli import init_db, list_routes, create_admin
+from cli import init_db, list_routes, create_admin, beat_command, trigger_posts_command
 from helpers.okta import OKTA_ENABLED, validate_okta_config
 from helpers.template_helpers import get_platform_color, get_platform_icon
 from config import Config
@@ -42,7 +42,11 @@ def celery_init_app(app: Flask) -> Celery:
     # Tasks should be in an 'include' list for the worker to find if not using full autodiscovery.
     # Common practice is to have tasks in a 'tasks.py' or a 'tasks' package.
     # If your tasks are in 'tasks/content.py', Celery needs to be able to import 'tasks.content'.
-    celery_app = Celery(app.name, task_cls=FlaskTask, include=['tasks.content', 'tasks.promote'])
+    celery_app = Celery(
+        app.name, 
+        task_cls=FlaskTask, 
+        include=['tasks.content', 'tasks.promote', 'tasks.notifications']
+    )
     celery_app.config_from_object(app.config["CELERY"]) # Load from CELERY dict in Flask config
     celery_app.set_default() # Make this the default Celery app for @shared_task
     app.extensions["celery"] = celery_app
@@ -110,6 +114,7 @@ def create_app():
     # Add company configuration
     app.config["COMPANY_NAME"] = os.environ.get("COMPANY_NAME", "Your Company")
     app.config["UTM_PARAMS"] = os.environ.get("UTM_PARAMS", "")
+    app.config["BASE_URL"] = os.environ.get("BASE_URL", "http://localhost:5001")
 
     # Add Okta configuration to app config
     app.config["OKTA_ENABLED"] = OKTA_ENABLED
@@ -124,6 +129,19 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
+    
+    # Configure Flask-Mail
+    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+    app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() in ['true', 'on', '1']
+    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@example.com')
+    mail.init_app(app)
+
+    # Configure Redis
+    redis_client.init_app(app)
+    app.redis_client = redis_client
 
     # Validate Okta configuration (ensure it runs after app.config is fully set)
     with app.app_context():
@@ -156,6 +174,8 @@ def create_app():
     app.cli.add_command(init_db)
     app.cli.add_command(list_routes)
     app.cli.add_command(create_admin)
+    app.cli.add_command(beat_command)
+    app.cli.add_command(trigger_posts_command)
 
     @app.cli.command("worker")
     @click.option('--loglevel', default='info', help='Log level (debug/info/warning/error)')

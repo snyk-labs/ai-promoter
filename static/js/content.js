@@ -26,6 +26,29 @@ window.addEventListener('DOMContentLoaded', () => {
         URL_APPROX_LENGTH: 30
     };
 
+    // Moved function definition higher
+    window.showPromoteModal = function(contentType, contentId) {
+        currentContentType = contentType;
+        currentContentId = contentId;
+        document.getElementById('promoteModal').classList.remove('hidden');
+        document.getElementById('loadingSpinner').classList.remove('hidden');
+        document.getElementById('linkedinPost').classList.add('hidden');
+        document.getElementById('errorMessage').classList.add('hidden');
+        const linkedinTextarea = document.getElementById('linkedinContentEditable');
+        if (linkedinTextarea) linkedinTextarea.value = '';
+        const charCounterElement = document.getElementById('charCounter');
+        if(charCounterElement) charCounterElement.innerHTML = '';
+        generateSocialPost(); // This function also needs to be defined or moved up if called here
+    };
+
+    // Check for promote query parameter and open modal if present
+    const urlParams = new URLSearchParams(window.location.search);
+    const promoteContentIdFromURL = urlParams.get('promote');
+    if (promoteContentIdFromURL) {
+        console.log(`Promote parameter found in URL, attempting to open modal for content ID: ${promoteContentIdFromURL}`);
+        showPromoteModal('content', promoteContentIdFromURL);
+    }
+
     // Admin content form logic
     const adminContentForm = document.getElementById('contentFormAdmin');
     if (adminContentForm) {
@@ -311,20 +334,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     // Modal logic (promote, edit)
-    window.showPromoteModal = function(contentType, contentId) {
-        currentContentType = contentType;
-        currentContentId = contentId;
-        document.getElementById('promoteModal').classList.remove('hidden');
-        document.getElementById('loadingSpinner').classList.remove('hidden');
-        document.getElementById('linkedinPost').classList.add('hidden');
-        document.getElementById('errorMessage').classList.add('hidden');
-        const linkedinTextarea = document.getElementById('linkedinContentEditable');
-        linkedinTextarea.value = '';
-        const charCounterElement = document.getElementById('charCounter');
-        if(charCounterElement) charCounterElement.innerHTML = '';
-        generateSocialPost();
-    };
-
     window.closePromoteModal = function() {
         document.getElementById('promoteModal').classList.add('hidden');
         currentContentType = null;

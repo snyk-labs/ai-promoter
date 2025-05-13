@@ -9,29 +9,7 @@
 # Import task modules here so the worker can find them.
 import tasks.content
 import tasks.promote
-# If you have more task modules, import them as well, e.g.:
-# import tasks.another_module
-
-# You can still specify task modules to be imported by the worker here if desired,
-# though Celery can also auto-discover tasks.
-# Example of ensuring tasks are loaded (if not using autodiscovery effectively):
-# from . import tasks # Assuming your tasks are in a tasks package/directory
-
-# If you have a tasks.content module specifically:
-# import tasks.content
-
-# For Celery to find tasks, it needs to import the modules where tasks are defined.
-# If your tasks are in `tasks/content.py`, and `tasks` is a package (has __init__.py),
-# the worker needs to be able to import `tasks.content`.
-# The `include` argument in Celery app creation usually handles this, but since
-# the app is created in `app.py`, we ensure worker can find tasks by importing them or their package.
-
-# One way to ensure tasks are seen by `celery -A celery_app worker` is to ensure
-# the modules containing tasks are imported when celery_app is processed.
-# This can be done by adding an import statement here, e.g.:
-# import tasks.content # Assuming your scrape_content_task is in tasks/content.py
-
-# If you have other task modules, import them here as well.
+import tasks.notifications
 
 from celery import Celery
 from config import Config # Import Config to access REDIS_URL and other CELERY settings
@@ -43,7 +21,7 @@ celery = Celery(
     __name__, # Will be updated by celery_init_app to app.name
     broker=Config.REDIS_URL, # Directly set the broker
     backend=Config.REDIS_URL, # Directly set the backend
-    include=['tasks.content', 'tasks.promote'] # Ensure tasks from both modules are discovered
+    include=['tasks.content', 'tasks.promote', 'tasks.notifications'] # Ensure tasks from all modules are discovered
 )
 
 # Apply all other settings from the CELERY dictionary in Config

@@ -38,26 +38,6 @@ def upgrade():
         sa.UniqueConstraint("okta_id"),
     )
 
-    # Create content table
-    op.create_table(
-        "content",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("content_type", sa.String(length=50), nullable=False),
-        sa.Column("title", sa.String(length=200), nullable=False),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("url", sa.String(length=500), nullable=False),
-        sa.Column("image_url", sa.String(length=500), nullable=True),
-        sa.Column("publish_date", sa.DateTime(), nullable=True),
-        sa.Column("author", sa.String(length=100), nullable=True),
-        sa.Column("submitted_by_id", sa.Integer(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["submitted_by_id"],
-            ["users.id"],
-        ),
-        sa.PrimaryKeyConstraint("id"),
-    )
-
 
 def downgrade():
-    op.drop_table("content")
     op.drop_table("users")

@@ -44,6 +44,4 @@ def init_db():
         click.echo(f"{dialect_name.capitalize()} detected. Dropping all tables...")
         db.drop_all()
 
-    click.echo("Creating database tables...")
-    db.create_all()
-    click.echo("Database tables created successfully.")
+    click.echo("Database has been wiped. Tables will be created by migrations.")

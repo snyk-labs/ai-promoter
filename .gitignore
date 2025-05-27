@@ -13,3 +13,14 @@ htmlcov/
 .egg/
 .eggs/
 .pypirc
+
+# Pytest
+.pytest_cache/
+cache/
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# mypy
+.mypy_cache/

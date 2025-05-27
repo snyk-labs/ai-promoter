@@ -1,0 +1,2 @@
+*<{{ item.promote_url }}|{{ item.title }}>*
+{{ item.description }} 

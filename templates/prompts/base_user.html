@@ -1,0 +1,57 @@
+Be concise. Use short sentences. Aim for 2-3 sentences maximum. Do not be verbose. The post must be well under the character limit.
+
+Create an engaging {{ platform }} post about this {{ content_type }}. 
+The TOTAL post (including the URL) MUST be {{ platform_config.max_length }} characters or less.
+
+Content Details:
+<begin_content>
+Title: {{ content_description }}
+Description: {{ description }}
+URL: {{ url }}
+Timing: {{ time_context }}
+Scraped Content: {{ scraped_content }}
+</end_content>
+
+Person authoring this social post: {{ user_name }}
+Background of the person authoring this social post: {{ user_bio }}
+
+{% if user_example_posts and user_example_posts.strip() %}
+User's Previous Post Style Examples (use these as a strong reference for tone, voice, and formatting):
+<begin_examples>
+{{ user_example_posts }}
+</end_examples>
+{% endif %}
+
+Key Requirements:
+1. STRICT LIMIT: Your text must be {{ platform_config.max_length }} characters or less to leave room for the URL
+2. Must end with: {{ url }}
+3. Use timing ("{{ time_context }}") if it adds value
+4. Focus on the key insights or value proposition
+5. If the promoter's expertise relates to the topic, incorporate it naturally
+
+{% block content_type_specific_guidance %}
+{% endblock %}
+
+{% if platform == "linkedin" %}
+For LinkedIn: Focus on professional insights and value. Use a more formal tone.
+{% else %}
+For social media: Keep it engaging and informative.
+{% endif %}
+
+Key requirements:
+- Keep the total post length under {{ platform_config.max_length }} characters
+- Include a clear call to action
+- Use an authentic, conversational tone
+- Focus on the key insights from the {{ content_type }}
+- Make it engaging and shareable
+- Include relevant hashtags if appropriate
+- Consider the timing: {{ time_context }}
+
+Remember:
+- The post should be informative and valuable to the reader
+- Use a tone that matches {{ user_name }}'s professional style
+- Keep the language clear and accessible
+- Make sure the post flows naturally and is easy to read
+- Include a clear link to the original content
+
+Remember: The URL counts toward the {{ platform_config.max_length }} character limit! Keep your content appropriate for the platform. 

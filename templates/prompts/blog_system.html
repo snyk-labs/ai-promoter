@@ -1,0 +1,16 @@
+{% extends "prompts/base_system.html" %}
+
+{% block content_type_specific_style %}
+Blog Post Promotion Style:
+- Focus on the educational aspects and key insights
+- Emphasize any statistics, research findings, or actionable tips
+- Use a more thoughtful, analytical tone
+- Highlight the expertise demonstrated in the article
+- For technical posts, mention technologies or techniques covered
+
+{% if blog_author %}
+- The blog post was written by {{ blog_author }} - you may mention the author if it adds value
+{% else %}
+- DO NOT mention or refer to any blog author as this information is not available
+{% endif %}
+{% endblock %} 

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Content to Share!</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+        }
+        .header h2 {
+            margin: 0;
+            color: #333333;
+        }
+        .greeting p {
+            font-size: 1.1em;
+            color: #555555;
+            margin-bottom: 15px;
+        }
+        .content-item {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #eeeeee;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .content-item h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333333;
+        }
+        .content-item p {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #666666;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+        .share-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .share-button:hover {
+            background-color: #0056b3;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #aaaaaa;
+        }
+    </style>
+</head><body>
+    <div class="container">
+        <div class="greeting">
+            <h2>Hi {{ user.name }},</h2>
+            <p>We have new content available for you to share on your social media!</p>
+        </div>
+
+        {% for item in content_summary %}
+        <div class="content-item">
+            <h3>{{ item.title }}</h3>
+            {% if item.description %}
+            <p>{{ item.description }}</p>
+            {% endif %}
+            <a href="{{ item.promote_url }}" class="share-button">
+                Share This Content
+            </a>
+        </div>
+        {% endfor %}
+
+        <div class="footer">
+            <p>&copy; {{ now.year if now else '' }} {{ company_name if company_name else 'Your Company' }}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html> 

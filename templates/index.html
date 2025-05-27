@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+
+    {% if current_user.is_admin %}
+    <div class="mb-8">
+        <!-- Content Creation Form -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 max-w-2xl mx-auto">
+            <h2 class="text-xl font-semibold mb-4 dark:text-gray-100">Add New Content</h2>
+            <form id="contentFormAdmin" action="{{ url_for('admin.create_content') }}" method="POST" class="space-y-4">
+                <div>
+                    <label for="urlAdmin" class="block text-sm font-medium text-gray-700 dark:text-gray-300">URL</label>
+                    <input type="url" name="url" id="urlAdmin" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                        placeholder="https://example.com/article">
+                </div>
+                <div>
+                    <label for="copyAdmin" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Copy
+                        (Optional)</label>
+                    <textarea name="copy" id="copyAdmin" rows="6"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                        placeholder="Enter the exact body of the social post you want users to share. If provided, this will be used instead of AI-generated copy."></textarea>
+                    <div id="copyAdminCharCounter" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {/* Character count will be rendered here by JavaScript */}
+                    </div>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        If you provide text in this field, it will be used as the exact social media post content.
+                        Otherwise, AI will be used to generate the post based on the URL and any additional context.
+                    </p>
+                </div>
+                <div>
+                    <label for="contextAdmin"
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300">Additional Context
+                        (Optional)</label>
+                    <textarea name="context" id="contextAdmin" rows="4"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                        placeholder="Add any additional context that might be helpful when creating social media posts about this content..."></textarea>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        This field can be used to provide additional context, key points, or specific angles that should
+                        be emphasized when creating social media posts about this content. For example, you might want
+                        to highlight specific insights, target audience, or unique aspects of the content.
+                    </p>
+                </div>
+                <div>
+                    <label for="utmCampaignAdmin" class="block text-sm font-medium text-gray-700 dark:text-gray-300">UTM
+                        Campaign
+                        (Optional)</label>
+                    <input type="text" name="utm_campaign" id="utmCampaignAdmin"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                        placeholder="Enter UTM campaign parameter for content promotion">
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        This field allows you to set a specific UTM campaign parameter for this content when it's being
+                        promoted.
+                        This helps track the effectiveness of different promotional campaigns.
+                    </p>
+                </div>
+                <div>
+                    <button type="submit" id="submitBtnAdmin"
+                        class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center justify-center">
+                        <span id="buttonTextAdmin">Add Content</span>
+                        <svg id="loadingSpinnerAdmin" class="hidden animate-spin ml-2 h-5 w-5 text-white"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                            </circle>
+                            <path class="opacity-75" fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if current_user.is_authenticated %}
+    {% if not current_user.is_admin and not current_user.is_anonymous %} {# This condition ensures the banner only shows
+    for non-admin authenticated users #}
+    <div class="mb-8 bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4" role="alert">
+        {% if config.DASHBOARD_BANNER %}
+        {{ config.DASHBOARD_BANNER | safe }}
+        {% else %}
+        <p class="font-bold">Content Idea?</p>
+        <p>Have an idea for a piece of content all Snykers should promote? Please let us know in our <a
+                href="https://snyk.enterprise.slack.com/archives/C0108NPKY12" target="_blank"
+                class="font-bold hover:underline">#ask-social-media</a> Slack channel!</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {% for item in content_items %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden flex flex-col relative card-item max-w-sm"
+            data-card-id="{{ item.id }}">
+            {% if current_user.is_admin %}
+            <button
+                class="delete-content-btn absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-2xl z-10"
+                data-content-id="{{ item.id }}" title="Delete Content">
+                &times;
+            </button>
+            <button class="notify-btn absolute top-2 left-2 text-yellow-500 hover:text-yellow-600 z-10"
+                data-content-id="{{ item.id }}" data-title="{{ item.title or '' }}" title="Notify Users">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                    </path>
+                </svg>
+            </button>
+            {% endif %}
+            {% if item.image_url %}
+            <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full h-32 object-cover">
+            {% endif %}
+            <div class="p-4 flex flex-col flex-grow">
+                <h2 class="text-xl font-semibold mb-2 dark:text-gray-100">{{ item.title }}</h2>
+                {% if item.submitted_by %}
+                <p class="text-sm text-gray-500 mb-2">Submitted by: {{ item.submitted_by.name }}</p>
+                {% endif %}
+                {% if item.created_at %}
+                <p class="text-sm text-gray-500 mb-2 submitted-date-jinja"
+                    data-iso-date="{{ item.created_at.isoformat() }}">Submitted on: Loading...</p>
+                {% endif %}
+                {% if current_user.is_admin %}
+                <p class="text-xs text-gray-400 dark:text-gray-500 mb-2 items-center">
+                    Copy Promotion URL:
+                    <span class="font-mono text-gray-500 dark:text-gray-400">/?promote={{ item.id }}</span>
+                    <button
+                        class="copy-promo-url-btn ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                        data-promo-url="{{ request.host_url }}?promote={{ item.id }}" title="Copy promotion URL">
+                        <svg class="w-3 h-3 inline-block" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                                d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12v-2zM15 5H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h7c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h7v14z">
+                            </path>
+                        </svg>
+                    </button>
+                </p>
+                {% endif %}
+                <p class="text-gray-600 mb-4 flex-grow">{{ (item.excerpt or '') | truncate(100) }}</p>
+
+                {% if item.share_count > 0 %}
+                <div class="mb-4 px-4 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ item.share_count }}
+                                shares</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            {% for platform, count in item.platform_share_counts %}
+                            <div class="flex items-center space-x-1" title="{{ platform }} shares">
+                                <span class="text-sm text-gray-600 dark:text-gray-300">{{ count }}</span>
+                                <svg class="w-4 h-4 {{ getPlatformColor(platform) }}" fill="currentColor"
+                                    viewBox="0 0 24 24">
+                                    {{ getPlatformIcon(platform) | safe }}
+                                </svg>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="flex justify-between items-center space-x-2 mt-auto">
+                    <button onclick="window.open('{{ item.url }}', '_blank')"
+                        class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">View</button>
+                    {% if current_user.is_admin %}
+                    <button class="edit-btn px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
+                        data-content-id="{{ item.id }}" data-title="{{ item.title }}"
+                        data-excerpt="{{ item.excerpt or '' }}" data-url="{{ item.url }}"
+                        data-image-url="{{ item.image_url or '' }}" data-context="{{ item.context or '' }}"
+                        data-copy="{{ item.copy or '' }}" data-utm-campaign="{{ item.utm_campaign or '' }}">
+                        Edit
+                    </button>
+                    {% endif %}
+                    <button class="promote-btn px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+                        data-content-type="{{ item.content_type }}" data-content-id="{{ item.id }}">
+                        Promote
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if has_more_content %}
+    <div class="text-center mt-8">
+        <button id="loadMoreBtn" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+            Load More
+        </button>
+    </div>
+    {% endif %}
+    {% else %}
+    {# User is not authenticated (anonymous) #}
+    <div class="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center">
+        <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-200 mb-3">Welcome to AI Content Promoter!</h2>
+        <p class="text-gray-600 dark:text-gray-400 mb-6">Please log in or register to view and promote content.</p>
+        <div class="flex space-x-4">
+            <a href="{{ url_for('auth.login') }}"
+                class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Login</a>
+            <a href="{{ url_for('auth.register') }}"
+                class="px-6 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Register</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Promote Modal -->
+<div id="promoteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-lg w-full mx-4">
+        <h2 class="text-2xl font-bold mb-4 dark:text-gray-100">Generated Social Media Post</h2>
+        <div id="promoteContent" class="space-y-4">
+            <div id="loadingSpinner" class="flex justify-center">
+                <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none"
+                    viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                    </path>
+                </svg>
+            </div>
+            <div id="linkedinPost" class="hidden">
+                <h3 class="text-lg font-semibold mb-2 dark:text-gray-200">LinkedIn Post</h3>
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <div id="charCounter" class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                        {/* Character count will be rendered here by JavaScript */}
+                    </div>
+                    <textarea id="linkedinContentEditable"
+                        class="w-full h-40 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 resize-y dark:bg-gray-600 dark:text-gray-200 dark:border-gray-500 dark:placeholder-gray-400"
+                        rows="5"></textarea>
+                </div>
+                <button onclick="postToLinkedIn()"
+                    class="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    Post to LinkedIn
+                </button>
+                <div id="linkedinAuthMessage"
+                    class="hidden text-sm text-yellow-700 bg-yellow-50 dark:bg-yellow-900 dark:text-yellow-300 p-3 rounded-md mt-2">
+                </div>
+            </div>
+            <div id="errorMessage" class="hidden text-red-600 dark:text-red-400"></div>
+        </div>
+        <div class="mt-6 flex justify-end">
+            <button onclick="closePromoteModal()"
+                class="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-lg w-full mx-4">
+        <h2 class="text-2xl font-bold mb-4 dark:text-gray-100">Edit Content</h2>
+        <form id="editForm" class="space-y-4">
+            <input type="hidden" id="editContentId" name="content_id">
+            <div>
+                <label for="editTitle" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
+                <input type="text" id="editTitle" name="title"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
+            </div>
+            <div>
+                <label for="editExcerpt"
+                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">Excerpt</label>
+                <textarea id="editExcerpt" name="excerpt" rows="4"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"></textarea>
+            </div>
+            <div>
+                <label for="editUrl" class="block text-sm font-medium text-gray-700 dark:text-gray-300">URL</label>
+                <input type="text" id="editUrl" name="url"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
+            </div>
+            <div>
+                <label for="editImageUrl" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Image
+                    URL</label>
+                <input type="text" id="editImageUrl" name="image_url"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
+            </div>
+            <div>
+                <label for="editCopy" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Copy</label>
+                <textarea id="editCopy" name="copy" rows="4"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                    placeholder="Social media copy..."></textarea>
+                <div id="editCopyCharCounter" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {/* Character count will be rendered here by JavaScript */}
+                </div>
+            </div>
+            <div>
+                <label for="editContext"
+                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">Context</label>
+                <textarea id="editContext" name="context" rows="3"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                    placeholder="Additional context for this content..."></textarea>
+            </div>
+            <div>
+                <label for="editUtmCampaign" class="block text-sm font-medium text-gray-700 dark:text-gray-300">UTM
+                    Campaign</label>
+                <input type="text" id="editUtmCampaign" name="utm_campaign"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                    placeholder="UTM campaign parameter for content promotion">
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Set a specific UTM campaign parameter for this content when it's being promoted.
+                </p>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="window.hideEditModal()"
+                    class="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save
+                    Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="toast" class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded shadow-lg hidden">
+    Content updated successfully!
+</div>
+
+<script>
+    // Admin status is now passed via a data attribute on the body tag (see base.html)
+
+    let currentContentId = null;
+    let currentContentType = null;
+    let currentPage = 1;
+    let isLoading = false;
+    let hasMoreContent = document.getElementById('loadMoreBtn') !== null;
+
+    // Character limits for platforms (Consider URL approximation of 23-30 chars)
+    const CHAR_LIMITS = {
+        LINKEDIN: 3000, // Raw limit from backend, effective is less with URL
+        TWITTER: 280,
+        BLUESKY: 300,
+        URL_APPROX_LENGTH: 30 // Approximation for URL length
+    };
+
+    // All content logic and toast notifications have been moved to static/js/content.js for maintainability.
+</script>
+{% endblock %}

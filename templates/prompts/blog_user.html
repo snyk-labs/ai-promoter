@@ -1,0 +1,12 @@
+{% extends "prompts/base_user.html" %}
+
+{% block content_type_specific_guidance %}
+6. Emphasize the educational value or key insights
+7. Highlight any unique perspectives or research findings
+
+{% if blog_author %}
+8. You can mention the blog author: "{{ blog_author }}" if it adds value to the post
+{% else %}
+8. DO NOT refer to or mention any blog author since that information is not available
+{% endif %}
+{% endblock %} 

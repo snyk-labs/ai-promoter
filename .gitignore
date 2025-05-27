@@ -1,0 +1,15 @@
+*.db
+__pycache__
+venv
+
+# Python package files
+*.pyc
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.egg/
+.eggs/
+.pypirc

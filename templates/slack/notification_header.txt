@@ -1,0 +1,1 @@
+Hello {{ company_name }} friends! We have {{ num_items }} new piece(s) of content available for you to share{% if total_chunks > 1 %} (this is part {{ current_chunk }}/{{ total_chunks }}){% endif %}: 

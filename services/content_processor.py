@@ -7,7 +7,6 @@ from datetime import datetime
 from models.content import Content
 from extensions import db
 from flask import current_app
-from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 

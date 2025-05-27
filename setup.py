@@ -19,7 +19,6 @@ setup(
         "arcadepy>=0.1.0",
         "python-jose>=3.3.0",
         "requests>=2.28.0",
-        "beautifulsoup4>=4.11.0",
         "feedparser>=6.0.0",
         "click>=8.0.0",
         "gunicorn>=21.2.0",

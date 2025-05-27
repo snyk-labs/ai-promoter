@@ -5,6 +5,8 @@ from datetime import datetime
 import click
 from urllib.parse import urlparse
 
+# import pytest # pytest is no longer directly used here
+
 from judoscale.flask import Judoscale
 from judoscale.celery import judoscale_celery
 
@@ -28,6 +30,7 @@ from cli import (
     beat_command,
     trigger_posts_command,
     trigger_fetch_content_command,
+    test_command,
 )
 from helpers.okta import OKTA_ENABLED, validate_okta_config
 from helpers.template_helpers import get_platform_color, get_platform_icon
@@ -171,6 +174,7 @@ def create_app():
     app.cli.add_command(beat_command)
     app.cli.add_command(trigger_posts_command)
     app.cli.add_command(trigger_fetch_content_command)
+    app.cli.add_command(test_command)
 
     @app.cli.command("worker")
     @click.option(

@@ -9,10 +9,7 @@ from extensions import (
 )  # For database access if needed, though fetching user might be better in endpoint
 import logging
 
-# Import for LinkedIn posting - conditional logic will be used
-from helpers.arcade import (
-    post_to_linkedin as post_to_linkedin_arcade,
-)  # Renamed for clarity
+# Import for LinkedIn posting - native LinkedIn only
 from helpers.linkedin_native import post_to_linkedin_native
 from services.slack_service import send_slack_dm  # Import the Slack DM helper
 
@@ -92,20 +89,13 @@ def generate_social_media_post_task(self, content_id: int, user_id: int):
 @shared_task(bind=True, ignore_result=False, max_retries=3, default_retry_delay=60)
 def post_to_linkedin_task(self, user_id: int, content_id: int, post_content: str):
     """
-    Celery task to post content to LinkedIn for a given user.
-    Uses native or Arcade based on NATIVE_LINKEDIN config.
+    Celery task to post content to LinkedIn for a given user using native LinkedIn integration.
     Args:
         user_id: The ID of the user posting the content
         content_id: The ID of the content being posted about
         post_content: The content to post to LinkedIn
     """
     try:
-        # It's important for Celery tasks that might run outside a Flask app context
-        # to create their own app context if they need current_app.config.
-        # However, for shared_task, if the app is configured when Celery starts, it might be available.
-        # For robustness, an app context can be pushed if direct current_app access is problematic.
-        # For now, assuming current_app is accessible as configured in Flask app factory for Celery.
-
         from models import (
             User,
             Content,
@@ -120,40 +110,31 @@ def post_to_linkedin_task(self, user_id: int, content_id: int, post_content: str
         if not content:
             raise ValueError(f"Content with ID {content_id} not found.")
 
-        # The general linkedin_authorized flag should still be checked first.
-        # Specific token checks are done within the native/arcade functions.
+        # Check if user is authorized for LinkedIn
         if not user.linkedin_authorized:
             raise ValueError(
                 "User is not generally authorized for LinkedIn. Please connect/re-connect."
+            )
+
+        # Ensure user has native tokens before attempting
+        if not user.linkedin_native_access_token:
+            raise ValueError(
+                "User is not authorized for Native LinkedIn posting. Missing access token."
             )
 
         logger.info(
             f"Starting LinkedIn post for user_id: {user_id}, content_id: {content_id}"
         )
 
-        response_data = None
-        if current_app.config.get("NATIVE_LINKEDIN"):
-            logger.info(f"Using NATIVE LinkedIn integration for user {user_id}.")
-            # Ensure user has native tokens before attempting, though post_to_linkedin_native does its own checks.
-            if not user.linkedin_native_access_token:
-                raise ValueError(
-                    "User is not authorized for Native LinkedIn posting. Missing access token."
-                )
-            response_data = post_to_linkedin_native(user, post_content)
-        else:
-            logger.info(f"Using ARCADE LinkedIn integration for user {user_id}.")
-            response_data = post_to_linkedin_arcade(user, post_content)
+        response_data = post_to_linkedin_native(user, post_content)
 
         # Create Share record
         # The native function returns {"status": "success", "id": post_id, "url": post_url}
-        # The arcade function (presumably) returns {"url": ..., ...} - adjust based on actual arcade response
         post_url = (
             response_data.get("url")
             if response_data and "url" in response_data
             else None
         )
-        # If native, response_data might also contain an 'id' for the post
-        # post_id_from_response = response_data.get('id') if response_data else None
 
         share = Share(
             user_id=user_id,
@@ -161,7 +142,6 @@ def post_to_linkedin_task(self, user_id: int, content_id: int, post_content: str
             platform="linkedin",
             post_content=post_content,
             post_url=post_url,
-            # Consider adding platform_post_id=post_id_from_response if you want to store it.
         )
         db.session.add(share)
         db.session.commit()

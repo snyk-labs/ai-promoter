@@ -31,6 +31,7 @@ from cli import (
     trigger_posts_command,
     trigger_fetch_content_command,
     test_command,
+    lint_command,
 )
 from helpers.okta import OKTA_ENABLED, validate_okta_config
 from helpers.template_helpers import get_platform_color, get_platform_icon
@@ -175,6 +176,7 @@ def create_app():
     app.cli.add_command(trigger_posts_command)
     app.cli.add_command(trigger_fetch_content_command)
     app.cli.add_command(test_command)
+    app.cli.add_command(lint_command)
 
     @app.cli.command("worker")
     @click.option(

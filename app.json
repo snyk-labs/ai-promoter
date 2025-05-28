@@ -33,17 +33,13 @@
       "description": "Your Google Gemini API key for generating social media content",
       "required": true
     },
-    "ARCADE_API_KEY": {
-      "description": "Your Arcade API key for social media posting",
+    "LINKEDIN_CLIENT_ID": {
+      "description": "Your LinkedIn Client ID for LinkedIn integration",
       "required": true
     },
-    "LINKEDIN_CLIENT_ID": {
-      "description": "Your LinkedIn Client ID for native LinkedIn integration",
-      "required": false
-    },
     "LINKEDIN_CLIENT_SECRET": {
-      "description": "Your LinkedIn Client Secret for native LinkedIn integration",
-      "required": false
+      "description": "Your LinkedIn Client Secret for LinkedIn integration",
+      "required": true
     },
     "OKTA_ENABLED": {
       "description": "Enable Okta SSO integration (true/false)",

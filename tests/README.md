@@ -46,7 +46,6 @@ The test suite is organized by application layers and uses pytest markers for fl
 
 #### 📁 `helpers/` - Utility and Helper Tests
 - `test_okta.py`: Okta authentication helpers
-- `test_arcade.py`: Arcade API integration helpers
 - `test_gemini.py`: Google Gemini AI integration
 - `test_prompts.py`: AI prompt generation and management
 - `test_template_helpers.py`: Template rendering utilities

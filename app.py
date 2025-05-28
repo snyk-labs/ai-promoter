@@ -25,7 +25,6 @@ from extensions import db, login_manager, migrate, mail, redis_client
 from models import User
 from cli import (
     init_db,
-    list_routes,
     create_admin,
     beat_command,
     trigger_posts_command,
@@ -170,7 +169,6 @@ def create_app():
 
     # Register CLI commands
     app.cli.add_command(init_db)
-    app.cli.add_command(list_routes)
     app.cli.add_command(create_admin)
     app.cli.add_command(beat_command)
     app.cli.add_command(trigger_posts_command)

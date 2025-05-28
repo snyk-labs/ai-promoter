@@ -296,7 +296,7 @@ class TestInitDbCommand:
         """Test that init-db makes the expected click.echo calls."""
         with app.app_context():
             runner = CliRunner()
-            result = runner.invoke(init_db)
+            runner.invoke(init_db)
 
             # Verify click.echo was called with expected messages
             assert mock_echo.call_count >= 3

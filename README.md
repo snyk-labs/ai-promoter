@@ -52,7 +52,7 @@ The application is structured as follows:
   - `create_admin.py`: Command to create an admin user (`flask create-admin`)
   - `routes.py`: CLI command for listing application routes (`flask list-routes`)
 - `helpers/`: Utility functions and modules, including Okta helpers and template helpers.
-- `services/`: Modules for interacting with external services (e.g., Gemini, Arcade, Firecrawl, LinkedIn).
+- `services/`: Modules for interacting with external services (e.g., Gemini, Firecrawl, LinkedIn).
 - `tasks/`: Celery background tasks, organized by functionality.
   - `__init__.py`: Makes the tasks package importable.
   - `content.py`: Tasks related to content processing.
@@ -115,39 +115,15 @@ export SECRET_KEY="your-secure-random-key"  # On Windows: set SECRET_KEY="your-s
 # Gemini API Key (for generative AI features)
 export GEMINI_API_KEY="your-gemini-api-key"
 
-# Arcade API key (required for social media posting if not using native LinkedIn)
-export ARCADE_API_KEY="your-arcade-api-key"
+# LinkedIn Integration (required for social media posting)
+export LINKEDIN_CLIENT_ID="your-linkedin-client-id"
+export LINKEDIN_CLIENT_SECRET="your-linkedin-client-secret"
 
 # Firecrawl API Key (for web scraping/content fetching)
 export FIRECRAWL_API_KEY="your-firecrawl-api-key"
 
 # Redis URL (for Celery broker and backend, and application caching)
 export REDIS_URL="redis://localhost:6379/0" # Example, use your Redis instance URL
-
-# LinkedIn Native Integration (alternative for social media posting)
-# Required if NATIVE_LINKEDIN is "true"
-export LINKEDIN_CLIENT_ID="your-linkedin-client-id"
-export LINKEDIN_CLIENT_SECRET="your-linkedin-client-secret"
-```
-
-You can generate a secure random key for SECRET_KEY using:
-
-```bash
-# On macOS/Linux
-openssl rand -hex 32
-
-# On Windows (in PowerShell)
--join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | ForEach-Object {[char]$_})
-```
-
-### Optional Environment Variables
-
-```bash
-# Database configuration (defaults to SQLite)
-export DATABASE_URL="sqlite:///promoter.db"  # Change if using PostgreSQL or other database. promoter.db is the default if not set.
-
-# Base URL of the application (used for generating absolute URLs)
-export BASE_URL="http://localhost:5001" # Important for links in emails, etc.
 
 # Enable/disable Okta SSO (defaults to false)
 export OKTA_ENABLED="false"  # Set to "true" to enable Okta SSO
@@ -379,10 +355,7 @@ If you prefer to deploy manually or need more control over the deployment proces
    # Set Gemini API key
    heroku config:set GEMINI_API_KEY=your-gemini-api-key
    
-   # Set Arcade API key if using social media posting
-   heroku config:set ARCADE_API_KEY=your-arcade-api-key
-
-   # Set LinkedIn Native Integration keys if using this method
+   # Set LinkedIn Integration keys if using this method
    heroku config:set LINKEDIN_CLIENT_ID=your-linkedin-client-id
    heroku config:set LINKEDIN_CLIENT_SECRET=your-linkedin-client-secret
    ```

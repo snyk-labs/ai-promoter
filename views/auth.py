@@ -16,12 +16,6 @@ from datetime import datetime, timedelta
 
 from extensions import db
 from models import User, Share
-from helpers.arcade import (
-    start_linkedin_auth as start_linkedin_auth_arcade,
-    check_auth_status as check_auth_status_arcade,
-    post_to_linkedin as post_to_linkedin_arcade,
-    LINKEDIN_TOOL,
-)
 from helpers.linkedin_native import (
     generate_linkedin_auth_url,
     exchange_code_for_token,
@@ -158,42 +152,24 @@ def profile():
 @bp.route("/linkedin/connect")
 @login_required
 def linkedin_connect():
-    """Start LinkedIn authentication process. Supports both Arcade and Native."""
-    if current_app.config.get("NATIVE_LINKEDIN"):
-        try:
-            auth_url = generate_linkedin_auth_url()
-            return redirect(auth_url)
-        except ValueError as e:  # Catch errors from get_linkedin_config or CSRF issues
-            logger.error(f"Error generating native LinkedIn auth URL: {str(e)}")
-            flash(f"Could not start LinkedIn connection: {str(e)}", "error")
-            return redirect(url_for("auth.profile"))
-        except Exception as e:
-            logger.error(f"Unexpected error during native LinkedIn connect: {str(e)}")
-            flash("An unexpected error occurred while connecting to LinkedIn.", "error")
-            return redirect(url_for("auth.profile"))
-    else:  # Use Arcade
-        try:
-            auth_result = start_linkedin_auth_arcade(current_user)
-            if auth_result["status"] == "pending":
-                return redirect(auth_result["url"])
-            else:
-                current_user.linkedin_authorized = True
-                db.session.commit()
-                flash("LinkedIn connection successful (Arcade)!", "success")
-                return redirect(url_for("auth.profile"))
-        except Exception as e:
-            flash(f"Error connecting to LinkedIn (Arcade): {str(e)}", "error")
-            return redirect(url_for("auth.profile"))
+    """Start LinkedIn authentication process using native LinkedIn integration."""
+    try:
+        auth_url = generate_linkedin_auth_url()
+        return redirect(auth_url)
+    except ValueError as e:  # Catch errors from get_linkedin_config or CSRF issues
+        logger.error(f"Error generating native LinkedIn auth URL: {str(e)}")
+        flash(f"Could not start LinkedIn connection: {str(e)}", "error")
+        return redirect(url_for("auth.profile"))
+    except Exception as e:
+        logger.error(f"Unexpected error during native LinkedIn connect: {str(e)}")
+        flash("An unexpected error occurred while connecting to LinkedIn.", "error")
+        return redirect(url_for("auth.profile"))
 
 
 @bp.route("/linkedin/callback")
 @login_required
 def linkedin_callback():
-    """Handle callback from LinkedIn OAuth after user authorization (Native)."""
-    if not current_app.config.get("NATIVE_LINKEDIN"):
-        flash("Native LinkedIn integration is not enabled.", "error")
-        return redirect(url_for("auth.profile"))
-
+    """Handle callback from LinkedIn OAuth after user authorization."""
     code = request.args.get("code")
     state = request.args.get("state")
 
@@ -269,41 +245,25 @@ def linkedin_callback():
 @login_required
 def check_linkedin_auth():
     """Check if user is authenticated with LinkedIn."""
-    if current_app.config.get("NATIVE_LINKEDIN"):
-        is_authenticated = bool(
-            current_user.linkedin_native_access_token
-            and current_user.linkedin_native_token_expires_at
-            and current_user.linkedin_native_token_expires_at > datetime.utcnow()
-        )
-        # Potentially add token refresh logic here if token is about to expire.
-        return jsonify(
-            {
-                "authenticated": is_authenticated,
-                "status": "completed" if is_authenticated else "pending",
-                "native": True,
-            }
-        )
-    else:  # Use Arcade
-        try:
-            is_authenticated = check_auth_status_arcade(current_user, LINKEDIN_TOOL)
-            if is_authenticated and not current_user.linkedin_authorized:
-                current_user.linkedin_authorized = True
-                db.session.commit()
-            return jsonify(
-                {
-                    "authenticated": is_authenticated,
-                    "status": "completed" if is_authenticated else "pending",
-                    "native": False,
-                }
-            )
-        except Exception as e:
-            return jsonify({"authenticated": False, "error": str(e), "native": False})
+    is_authenticated = bool(
+        current_user.linkedin_native_access_token
+        and current_user.linkedin_native_token_expires_at
+        and current_user.linkedin_native_token_expires_at > datetime.utcnow()
+    )
+    # Potentially add token refresh logic here if token is about to expire.
+    return jsonify(
+        {
+            "authenticated": is_authenticated,
+            "status": "completed" if is_authenticated else "pending",
+            "native": True,
+        }
+    )
 
 
 @bp.route("/linkedin/post", methods=["POST"])
 @login_required
 def linkedin_post():
-    """Post content to LinkedIn asynchronously. Dispatches to Celery task which handles native/arcade."""
+    """Post content to LinkedIn asynchronously using native LinkedIn integration."""
     try:
         data = request.get_json()
         post_content = data.get("post")
@@ -323,19 +283,14 @@ def linkedin_post():
                 }
             )
 
-        # Dispatch Celery task for LinkedIn posting.
-        # The task 'post_to_linkedin_task' itself checks NATIVE_LINKEDIN config.
+        # Dispatch Celery task for LinkedIn posting
         from tasks.promote import post_to_linkedin_task
 
         task = post_to_linkedin_task.delay(current_user.id, content_id, post_content)
 
-        # Determine message based on integration type for clarity, though task handles actual posting method
-        integration_method = (
-            "Native LinkedIn" if current_app.config.get("NATIVE_LINKEDIN") else "Arcade"
+        return jsonify(
+            {"success": True, "message": "LinkedIn post started!", "task_id": task.id}
         )
-        message = f"LinkedIn post started via {integration_method}!"
-
-        return jsonify({"success": True, "message": message, "task_id": task.id})
 
     except Exception as e:
         logger.error(
@@ -347,35 +302,24 @@ def linkedin_post():
 @bp.route("/linkedin/disconnect", methods=["POST"])
 @login_required
 def linkedin_disconnect():
-    """Disconnect LinkedIn account. Supports both Arcade and Native."""
-    if current_app.config.get("NATIVE_LINKEDIN"):
-        try:
-            if current_user.linkedin_native_access_token:
-                revoke_linkedin_token(current_user.linkedin_native_access_token)
-                # Regardless of revocation success, clear local tokens
+    """Disconnect LinkedIn account using native LinkedIn integration."""
+    try:
+        if current_user.linkedin_native_access_token:
+            revoke_linkedin_token(current_user.linkedin_native_access_token)
+            # Regardless of revocation success, clear local tokens
 
-            current_user.linkedin_native_id = None
-            current_user.linkedin_native_access_token = None
-            current_user.linkedin_native_refresh_token = None
-            current_user.linkedin_native_token_expires_at = None
-            current_user.linkedin_authorized = False  # General flag
-            db.session.commit()
-            flash("LinkedIn account disconnected successfully.", "success")
-            logger.info(f"User {current_user.id} disconnected native LinkedIn account.")
-        except Exception as e:
-            flash(f"Error disconnecting LinkedIn account: {str(e)}", "error")
-            logger.error(
-                f"Error disconnecting native LinkedIn for user {current_user.id}: {str(e)}"
-            )
-    else:  # Use Arcade
-        try:
-            # Arcade doesn't have an explicit disconnect API call mentioned in the provided code.
-            # It primarily relies on clearing local authorization status.
-            current_user.linkedin_authorized = False
-            current_user.linkedin_token = None  # Assuming this was for Arcade
-            db.session.commit()
-            flash("LinkedIn account disconnected successfully (Arcade).", "success")
-        except Exception as e:
-            flash(f"Error disconnecting LinkedIn account (Arcade): {str(e)}", "error")
+        current_user.linkedin_native_id = None
+        current_user.linkedin_native_access_token = None
+        current_user.linkedin_native_refresh_token = None
+        current_user.linkedin_native_token_expires_at = None
+        current_user.linkedin_authorized = False  # General flag
+        db.session.commit()
+        flash("LinkedIn account disconnected successfully.", "success")
+        logger.info(f"User {current_user.id} disconnected native LinkedIn account.")
+    except Exception as e:
+        flash(f"Error disconnecting LinkedIn account: {str(e)}", "error")
+        logger.error(
+            f"Error disconnecting native LinkedIn for user {current_user.id}: {str(e)}"
+        )
 
     return redirect(url_for("auth.profile"))

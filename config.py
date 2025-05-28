@@ -120,26 +120,17 @@ class Config:
 
     # API Keys
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-    ARCADE_API_KEY = os.environ.get("ARCADE_API_KEY")
     FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY")
 
-    # LinkedIn Configuration
+    # LinkedIn Configuration (Native LinkedIn only)
     LINKEDIN_CLIENT_ID = os.environ.get("LINKEDIN_CLIENT_ID")
     LINKEDIN_CLIENT_SECRET = os.environ.get("LINKEDIN_CLIENT_SECRET")
-    NATIVE_LINKEDIN = os.environ.get("NATIVE_LINKEDIN", "false").lower() == "true"
 
-    # Conditional requirement for LinkedIn keys based on NATIVE_LINKEDIN flag
-    if NATIVE_LINKEDIN:
-        if not LINKEDIN_CLIENT_ID:
-            raise ValueError(
-                "LINKEDIN_CLIENT_ID is required when NATIVE_LINKEDIN is true"
-            )
-        if not LINKEDIN_CLIENT_SECRET:
-            raise ValueError(
-                "LINKEDIN_CLIENT_SECRET is required when NATIVE_LINKEDIN is true"
-            )
-    elif not ARCADE_API_KEY:  # If not using native, Arcade key is required
-        raise ValueError("ARCADE_API_KEY is required when NATIVE_LINKEDIN is false")
+    # LinkedIn keys are required for LinkedIn integration
+    if not LINKEDIN_CLIENT_ID:
+        raise ValueError("LINKEDIN_CLIENT_ID is required for LinkedIn integration")
+    if not LINKEDIN_CLIENT_SECRET:
+        raise ValueError("LINKEDIN_CLIENT_SECRET is required for LinkedIn integration")
 
     # Mail configuration
     MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")

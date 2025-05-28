@@ -1,5 +1,7 @@
 # AI Promoter
 
+[![Coverage Status](https://coveralls.io/repos/github/snyk-labs/ai-promoter/badge.svg?branch=main)](https://coveralls.io/github/snyk-labs/ai-promoter?branch=main)
+
 A Flask web application designed to help automate social media promotion for your content. This tool automatically syncs with podcast, blog, and YouTube RSS feeds, providing an interface for company employees to easily share new content on social media.
 
 ## Features

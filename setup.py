@@ -16,7 +16,6 @@ setup(
         "flask-migrate>=4.0.0",
         "sqlalchemy>=2.0.0",
         "google-generativeai>=0.3.0",
-        "arcadepy>=0.1.0",
         "python-jose>=3.3.0",
         "requests>=2.28.0",
         "feedparser>=6.0.0",

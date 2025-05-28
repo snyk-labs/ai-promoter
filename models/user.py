@@ -38,9 +38,8 @@ class User(UserMixin, db.Model):
         db.Text, nullable=True, unique=True
     )  # Slack User IDs are typically shorter, e.g. U0xxxxxxx or W0xxxxxxx
 
-    # Arcade LinkedIn integration fields
+    # LinkedIn integration fields
     linkedin_authorized = db.Column(db.Boolean, default=False, nullable=False)
-    linkedin_token = db.Column(db.Text, nullable=True)
 
     # Native LinkedIn Integration Fields
     linkedin_native_id = db.Column(

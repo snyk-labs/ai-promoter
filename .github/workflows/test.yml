@@ -68,17 +68,24 @@ jobs:
         pip install -r requirements.txt
 
     - name: Validate environment variables
+      env:
+        TEST_SECRET_KEY: ${{ vars.TEST_SECRET_KEY }}
+        TEST_REDIS_URL: ${{ vars.TEST_REDIS_URL }}
+        TEST_ARCADE_API_KEY: ${{ vars.TEST_ARCADE_API_KEY }}
+        TEST_TESTING: ${{ vars.TEST_TESTING }}
       run: |
         echo "Checking required environment variables..."
-        if [ -z "${{ vars.TEST_SECRET_KEY }}" ]; then
+        if [ -z "$TEST_SECRET_KEY" ]; then
           echo "❌ TEST_SECRET_KEY is not set"
           exit 1
         fi
-        if [ -z "${{ vars.TEST_REDIS_URL }}" ]; then
+        if [ -z "$TEST_REDIS_URL" ]; then
           echo "❌ TEST_REDIS_URL is not set"
           exit 1
         fi
         echo "✅ Environment variables validated"
+        echo "✅ SECRET_KEY length: ${#TEST_SECRET_KEY} characters"
+        echo "✅ REDIS_URL: $TEST_REDIS_URL"
 
     - name: Run linting checks
       id: lint

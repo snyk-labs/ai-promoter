@@ -17,14 +17,8 @@ logger = logging.getLogger(__name__)
 def refresh_expiring_linkedin_tokens():
     """
     Periodically refreshes LinkedIn access tokens that are about to expire.
-    Only processes users who have native LinkedIn integration enabled and have refresh tokens.
+    Only processes users who have LinkedIn integration enabled and have refresh tokens.
     """
-    if not current_app.config.get("NATIVE_LINKEDIN"):
-        logger.info(
-            "Native LinkedIn integration is disabled. Skipping token refresh task."
-        )
-        return
-
     now = datetime.utcnow()
     expiration_threshold = now + timedelta(
         days=7

@@ -3,9 +3,9 @@
 # application instance for use by Celery worker and beat commands.
 # This is the recommended pattern when using the Flask application factory.
 
-from app import create_app # Import your Flask app factory
+from app import create_app  # Import your Flask app factory
 
-flask_app = create_app() # Create the Flask app instance
+flask_app = create_app()  # Create the Flask app instance
 
 # The celery_init_app function (called within create_app) stores the
 # configured Celery instance in app.extensions["celery"].
@@ -17,4 +17,4 @@ celery = flask_app.extensions["celery"]
 # you could add imports here, e.g.:
 # import tasks.content
 # However, the `include` argument in the Celery app instantiation within `celery_init_app`
-# (in app.py) should handle task discovery for the `celery` instance we are exposing here. 
+# (in app.py) should handle task discovery for the `celery` instance we are exposing here.

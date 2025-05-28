@@ -3,10 +3,21 @@ from flask.cli import with_appcontext
 from extensions import db
 from models import User
 
+
 @click.command("create-admin")
-@click.option('--email', prompt=True, help='Email address of the admin user')
-@click.option('--name', default=None, help='Full name of the admin user (required if creating new)')
-@click.option('--password', default=None, hide_input=True, confirmation_prompt=True, help='Password for the new admin user (required if creating new)')
+@click.option("--email", prompt=True, help="Email address of the admin user")
+@click.option(
+    "--name",
+    default=None,
+    help="Full name of the admin user (required if creating new)",
+)
+@click.option(
+    "--password",
+    default=None,
+    hide_input=True,
+    confirmation_prompt=True,
+    help="Password for the new admin user (required if creating new)",
+)
 @with_appcontext
 def create_admin(email, name, password):
     """Create a new admin user or promote an existing user to admin."""
@@ -26,4 +37,4 @@ def create_admin(email, name, password):
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
-        click.echo(f"New admin user {email} created successfully.") 
+        click.echo(f"New admin user {email} created successfully.")

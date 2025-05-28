@@ -10,4 +10,4 @@ from .content import Content
 from .share import Share
 
 # Define __all__ to explicitly state what's available when importing from models
-__all__ = ['User', 'Content', 'Share']
+__all__ = ["User", "Content", "Share"]

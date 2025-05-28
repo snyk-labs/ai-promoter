@@ -50,7 +50,6 @@ The application is structured as follows:
   - `beat.py`: Celery beat scheduler command (`celery -A celery_app beat`) and a command to trigger content fetching.
   - `init_db.py`: Database initialization command (`flask init-db`)
   - `create_admin.py`: Command to create an admin user (`flask create-admin`)
-  - `utils.py`: Utility functions for CLI
   - `routes.py`: CLI command for listing application routes (`flask list-routes`)
 - `helpers/`: Utility functions and modules, including Okta helpers and template helpers.
 - `services/`: Modules for interacting with external services (e.g., Gemini, Arcade, Firecrawl, LinkedIn).

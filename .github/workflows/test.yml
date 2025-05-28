@@ -71,7 +71,6 @@ jobs:
       env:
         TEST_SECRET_KEY: ${{ vars.TEST_SECRET_KEY }}
         TEST_REDIS_URL: ${{ vars.TEST_REDIS_URL }}
-        TEST_ARCADE_API_KEY: ${{ vars.TEST_ARCADE_API_KEY }}
         TEST_TESTING: ${{ vars.TEST_TESTING }}
       run: |
         echo "Checking required environment variables..."
@@ -92,7 +91,6 @@ jobs:
       env:
         SECRET_KEY: ${{ vars.TEST_SECRET_KEY }}
         REDIS_URL: ${{ vars.TEST_REDIS_URL }}
-        ARCADE_API_KEY: ${{ vars.TEST_ARCADE_API_KEY }}
         TESTING: ${{ vars.TEST_TESTING }}
       run: |
         flask lint
@@ -102,7 +100,6 @@ jobs:
       env:
         SECRET_KEY: ${{ vars.TEST_SECRET_KEY }}
         REDIS_URL: ${{ vars.TEST_REDIS_URL }}
-        ARCADE_API_KEY: ${{ vars.TEST_ARCADE_API_KEY }}
         TESTING: ${{ vars.TEST_TESTING }}
       run: |
         flask test

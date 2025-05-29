@@ -242,10 +242,16 @@ class TestInitDbCommand:
             assert TestMessages.DETERMINING_DIALECT in result.output
             assert TestMessages.SQLITE_DETECTED in result.output
 
+    @patch("cli.init_db.db")
     @patch("cli.init_db.click.echo")
-    def test_init_db_click_echo_calls(self, mock_echo, app):
+    def test_init_db_click_echo_calls(self, mock_echo, mock_db, app):
         """Test that init-db makes the expected click.echo calls."""
         with app.app_context():
+            # Mock the database engine with SQLite dialect
+            mock_engine = Mock()
+            mock_engine.dialect.name = "sqlite"
+            mock_db.engine = mock_engine
+
             runner = CliRunner()
             runner.invoke(init_db)
 

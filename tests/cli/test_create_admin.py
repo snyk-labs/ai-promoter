@@ -34,6 +34,7 @@ Example usage:
 """
 
 import pytest
+import os
 from typing import Dict, List, Optional, Any
 from unittest.mock import Mock, patch, MagicMock
 from click.testing import CliRunner
@@ -292,6 +293,14 @@ def unique_user_data():
         return TestData.get_unique_user_data(str(counter))
 
     return _get_unique_data
+
+
+# Skip CLI integration tests during parallel execution
+# CLI commands create their own app context which bypasses test fixtures
+skip_if_parallel = pytest.mark.skipif(
+    os.environ.get("PYTEST_XDIST_WORKER") is not None,
+    reason="CLI integration tests are incompatible with parallel execution",
+)
 
 
 @pytest.mark.cli
@@ -660,11 +669,17 @@ class TestCreateAdminValidation:
 
 @pytest.mark.cli
 @pytest.mark.integration
+@skip_if_parallel
 class TestCreateAdminIntegration:
     """Integration tests for create-admin CLI command with real database operations."""
 
     def test_create_admin_command_with_real_database(
-        self, app: Any, cli_runner: CliRunner, session: Any, unique_user_data: Any
+        self,
+        app: Any,
+        cli_runner: CliRunner,
+        session: Any,
+        unique_user_data: Any,
+        cli_test_env: Any,
     ) -> None:
         """Test create-admin command with actual database operations."""
         with app.app_context():
@@ -721,7 +736,12 @@ class TestCreateAdminIntegration:
                 CreateAdminTestHelpers.cleanup_test_users(session, [email])
 
     def test_promote_real_user_to_admin(
-        self, app: Any, cli_runner: CliRunner, session: Any, unique_user_data: Any
+        self,
+        app: Any,
+        cli_runner: CliRunner,
+        session: Any,
+        unique_user_data: Any,
+        cli_test_env: Any,
     ) -> None:
         """Test promoting a real existing user to admin."""
         with app.app_context():
@@ -759,7 +779,12 @@ class TestCreateAdminIntegration:
                 CreateAdminTestHelpers.cleanup_test_users(session, [email])
 
     def test_existing_admin_no_change_real_database(
-        self, app: Any, cli_runner: CliRunner, session: Any, unique_user_data: Any
+        self,
+        app: Any,
+        cli_runner: CliRunner,
+        session: Any,
+        unique_user_data: Any,
+        cli_test_env: Any,
     ) -> None:
         """Test that existing admin users are not modified in real database."""
         with app.app_context():
@@ -798,7 +823,7 @@ class TestCreateAdminIntegration:
                 CreateAdminTestHelpers.cleanup_test_users(session, [email])
 
     def test_command_preserves_app_context(
-        self, app: Any, cli_runner: CliRunner
+        self, app: Any, cli_runner: CliRunner, cli_test_env: Any
     ) -> None:
         """Test that create-admin command preserves Flask app context."""
         with app.app_context():
@@ -820,7 +845,12 @@ class TestCreateAdminIntegration:
 
     @pytest.mark.parametrize("user_data", TestData.INTEGRATION_USERS)
     def test_multiple_admin_creation(
-        self, app: Any, cli_runner: CliRunner, session: Any, user_data: Dict[str, str]
+        self,
+        app: Any,
+        cli_runner: CliRunner,
+        session: Any,
+        user_data: Dict[str, str],
+        cli_test_env: Any,
     ) -> None:
         """Test creating multiple admin users in sequence."""
         with app.app_context():
@@ -853,7 +883,9 @@ class TestCreateAdminIntegration:
                 # Cleanup
                 CreateAdminTestHelpers.cleanup_test_users(session, [email])
 
-    def test_command_imports_and_dependencies(self, app: Any) -> None:
+    def test_command_imports_and_dependencies(
+        self, app: Any, cli_test_env: Any
+    ) -> None:
         """Test that all necessary imports and dependencies are available."""
         with app.app_context():
             # Test that the imported modules are accessible
@@ -870,7 +902,7 @@ class TestCreateAdminIntegration:
             assert callable(getattr(User, "set_password", None))
 
     def test_user_model_integration(
-        self, app: Any, session: Any, unique_user_data: Any
+        self, app: Any, session: Any, unique_user_data: Any, cli_test_env: Any
     ) -> None:
         """Test integration with User model methods and properties."""
         with app.app_context():

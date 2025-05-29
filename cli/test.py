@@ -16,7 +16,7 @@ class TestRunner:
         self.exit_code = 0
         self.coverage_enabled = True
 
-    def validate_environment(self) -> bool:
+    def validate_environment(self, parallel: bool = False) -> bool:
         """Validate that the testing environment is properly set up."""
         # Check if pytest is available
         try:
@@ -30,6 +30,23 @@ class TestRunner:
                 )
             )
             return False
+
+        # Check if pytest-xdist is available (if parallel execution is requested)
+        if parallel:
+            try:
+                subprocess.run(
+                    ["python", "-c", "import xdist"],
+                    capture_output=True,
+                    check=True,
+                )
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                click.echo(
+                    click.style(
+                        "❌ pytest-xdist not found. Install with: pip install pytest-xdist",
+                        fg="red",
+                    )
+                )
+                return False
 
         # Check if coverage is available (if needed)
         if self.coverage_enabled:
@@ -58,6 +75,8 @@ class TestRunner:
         marker: Optional[str],
         no_cov: bool,
         cov_report: Optional[str],
+        parallel: bool,
+        fail_fast: bool,
         pytest_args: Tuple[str, ...],
     ) -> List[str]:
         """Build the pytest command with all options."""
@@ -89,6 +108,14 @@ class TestRunner:
 
         if marker:
             cmd.extend(["-m", marker])
+
+        # Add parallel execution option
+        if parallel:
+            cmd.extend(["-n", "auto"])
+
+        # Add fail-fast option
+        if fail_fast:
+            cmd.append("-x")
 
         # Add any additional pytest arguments
         if pytest_args:
@@ -208,7 +235,7 @@ def test_command(
     runner.coverage_enabled = not no_cov
 
     # Validate environment
-    if not runner.validate_environment():
+    if not runner.validate_environment(parallel):
         sys.exit(1)
 
     # Build pytest command
@@ -218,15 +245,10 @@ def test_command(
         marker=marker,
         no_cov=no_cov,
         cov_report=cov_report,
+        parallel=parallel,
+        fail_fast=fail_fast,
         pytest_args=pytest_args,
     )
-
-    # Add additional options
-    if parallel:
-        cmd.extend(["-n", "auto"])  # Requires pytest-xdist
-
-    if fail_fast:
-        cmd.append("-x")
 
     # Set up environment
     env = runner.setup_test_environment()

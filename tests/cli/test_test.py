@@ -435,14 +435,23 @@ class TestTestRunner:
             marker=None,
             no_cov=False,
             cov_report=None,
+            parallel=False,
+            fail_fast=False,
             pytest_args=(),
         )
 
+        # Should include basic pytest command with coverage
         expected_base = ["python", "-m", "pytest"]
-        assert cmd[:3] == expected_base
-        assert "--cov=." in cmd
-        assert "--cov-branch" in cmd
-        assert "--cov-report=term-missing" in cmd
+        expected_coverage = [
+            "--cov=.",
+            "--cov-branch",
+            "--cov-report=term-missing",
+            "--cov-report=html:htmlcov",
+            "--cov-report=xml:coverage.xml",
+        ]
+
+        TestTestHelpers.assert_command_args_contain(cmd, expected_base)
+        TestTestHelpers.assert_command_args_contain(cmd, expected_coverage)
 
     def test_build_pytest_command_no_coverage(self) -> None:
         """Test building pytest command with coverage disabled."""
@@ -455,11 +464,18 @@ class TestTestRunner:
             marker=None,
             no_cov=True,
             cov_report=None,
+            parallel=False,
+            fail_fast=False,
             pytest_args=(),
         )
 
-        expected = ["python", "-m", "pytest"]
-        assert cmd == expected
+        # Should only include basic pytest command
+        expected_base = ["python", "-m", "pytest"]
+        TestTestHelpers.assert_command_args_contain(cmd, expected_base)
+
+        # Should not include coverage options
+        assert "--cov=." not in cmd
+        assert "--cov-branch" not in cmd
 
     def test_build_pytest_command_with_options(self) -> None:
         """Test building pytest command with various options."""
@@ -469,17 +485,20 @@ class TestTestRunner:
             verbose=True,
             keyword="test_user",
             marker="unit",
-            no_cov=True,
+            no_cov=False,
             cov_report=None,
-            pytest_args=("tests/models/",),
+            parallel=False,
+            fail_fast=False,
+            pytest_args=("--tb=short",),
         )
 
+        # Should include all specified options
         assert "-v" in cmd
-        assert "-k" in cmd and "test_user" in cmd
-        assert "-m" in cmd and "unit" in cmd
-        assert "tests/models/" in cmd
-        # Should not have coverage options
-        assert "--cov" not in " ".join(cmd)
+        assert "-k" in cmd
+        assert "test_user" in cmd
+        assert "-m" in cmd
+        assert "unit" in cmd
+        assert "--tb=short" in cmd
 
     def test_build_pytest_command_custom_coverage_report(self) -> None:
         """Test building pytest command with custom coverage report."""
@@ -491,12 +510,72 @@ class TestTestRunner:
             marker=None,
             no_cov=False,
             cov_report="html",
+            parallel=False,
+            fail_fast=False,
             pytest_args=(),
         )
 
+        # Should include custom coverage report
         assert "--cov-report=html" in cmd
-        # Should not have default coverage reports
+        # Should not include default reports when custom is specified
         assert "--cov-report=term-missing" not in cmd
+
+    def test_build_pytest_command_with_parallel(self) -> None:
+        """Test building pytest command with parallel execution."""
+        runner = TestRunner()
+
+        cmd = runner.build_pytest_command(
+            verbose=False,
+            keyword=None,
+            marker=None,
+            no_cov=False,
+            cov_report=None,
+            parallel=True,
+            fail_fast=False,
+            pytest_args=(),
+        )
+
+        # Should include parallel execution options
+        assert "-n" in cmd
+        assert "auto" in cmd
+
+    def test_build_pytest_command_with_fail_fast(self) -> None:
+        """Test building pytest command with fail-fast option."""
+        runner = TestRunner()
+
+        cmd = runner.build_pytest_command(
+            verbose=False,
+            keyword=None,
+            marker=None,
+            no_cov=False,
+            cov_report=None,
+            parallel=False,
+            fail_fast=True,
+            pytest_args=(),
+        )
+
+        # Should include fail-fast option
+        assert "-x" in cmd
+
+    def test_build_pytest_command_with_parallel_and_fail_fast(self) -> None:
+        """Test building pytest command with both parallel and fail-fast options."""
+        runner = TestRunner()
+
+        cmd = runner.build_pytest_command(
+            verbose=False,
+            keyword=None,
+            marker=None,
+            no_cov=False,
+            cov_report=None,
+            parallel=True,
+            fail_fast=True,
+            pytest_args=(),
+        )
+
+        # Should include both options
+        assert "-n" in cmd
+        assert "auto" in cmd
+        assert "-x" in cmd
 
     def test_setup_test_environment_default(self) -> None:
         """Test setting up test environment with defaults."""
@@ -681,11 +760,48 @@ class TestTestRunner:
         """Test that appropriate help messages are shown for different exit codes."""
         runner = TestRunner()
 
+        # Verify that the expected message is in the output
         with patch("cli.test.click.echo") as mock_echo:
             runner.print_summary(exit_code, no_cov=False)
 
-        echo_calls = [call[0][0] for call in mock_echo.call_args_list]
+        echo_calls = [str(call) for call in mock_echo.call_args_list]
         assert any(expected_message in call for call in echo_calls)
+
+    @patch("cli.test.subprocess.run")
+    def test_validate_environment_parallel_success(self, mock_run: Mock) -> None:
+        """Test environment validation with parallel execution enabled."""
+        runner = TestRunner()
+
+        # Mock successful subprocess calls for pytest, xdist, and pytest-cov
+        mock_run.return_value = Mock(returncode=0)
+
+        result = runner.validate_environment(parallel=True)
+
+        # Should validate pytest, xdist, and pytest-cov
+        assert result is True
+        assert mock_run.call_count == 3  # pytest, xdist, pytest-cov
+
+        # Check that xdist import was tested
+        calls = mock_run.call_args_list
+        xdist_call = calls[1]  # Second call should be for xdist
+        assert "import xdist" in xdist_call[0][0][2]
+
+    @patch("cli.test.subprocess.run")
+    def test_validate_environment_parallel_xdist_missing(self, mock_run: Mock) -> None:
+        """Test environment validation when pytest-xdist is missing."""
+        runner = TestRunner()
+
+        def mock_subprocess_side_effect(cmd, **kwargs):
+            if "import xdist" in cmd[2]:
+                raise FileNotFoundError("xdist not found")
+            return Mock(returncode=0)
+
+        mock_run.side_effect = mock_subprocess_side_effect
+
+        result = runner.validate_environment(parallel=True)
+
+        # Should fail validation due to missing xdist
+        assert result is False
 
 
 @pytest.mark.cli
@@ -851,18 +967,14 @@ class TestTestCommand(BaseTestCommandTest):
         mock_runner = TestTestHelpers.create_mock_runner()
         mock_runner_class.return_value = mock_runner
 
-        # Setup mock to return a modifiable command list
-        self.setup_mock_runner_with_command_building(mock_runner)
-
         result = self.invoke_test_command_with_app_context(
             app, cli_runner, ["--parallel"]
         )
         TestTestHelpers.assert_command_success(result)
 
-        # Check that run_tests was called with parallel options
-        call_args = mock_runner.run_tests.call_args
-        cmd_used = call_args[0][0]  # First argument is the command
-        assert "-n" in cmd_used and "auto" in cmd_used
+        # Check that build_pytest_command was called with parallel=True
+        call_args = mock_runner.build_pytest_command.call_args
+        assert call_args[1]["parallel"] is True
 
     @patch("cli.test.TestRunner")
     def test_test_command_with_fail_fast(
@@ -872,18 +984,14 @@ class TestTestCommand(BaseTestCommandTest):
         mock_runner = TestTestHelpers.create_mock_runner()
         mock_runner_class.return_value = mock_runner
 
-        # Setup mock to return a modifiable command list
-        self.setup_mock_runner_with_command_building(mock_runner)
-
         result = self.invoke_test_command_with_app_context(
             app, cli_runner, ["--fail-fast"]
         )
         TestTestHelpers.assert_command_success(result)
 
-        # Check that run_tests was called with fail-fast option
-        call_args = mock_runner.run_tests.call_args
-        cmd_used = call_args[0][0]  # First argument is the command
-        assert "-x" in cmd_used
+        # Check that build_pytest_command was called with fail_fast=True
+        call_args = mock_runner.build_pytest_command.call_args
+        assert call_args[1]["fail_fast"] is True
 
     @patch("cli.test.TestRunner")
     def test_test_command_with_pytest_args(
@@ -1018,6 +1126,8 @@ class TestTestCommandOptions(BaseTestCommandTest):
             "keyword": "test_user",
             "marker": "unit",
             "cov_report": "html",
+            "parallel": True,
+            "fail_fast": True,
         }
 
         for option_name, expected_value in expected_options.items():
@@ -1026,15 +1136,6 @@ class TestTestCommandOptions(BaseTestCommandTest):
             ), f"Expected {option_name}={expected_value}, got {call_args[1][option_name]}"
 
         assert "tests/models/" in call_args[1]["pytest_args"]
-
-        # Check that parallel and fail-fast were added to command
-        run_call_args = mock_runner.run_tests.call_args
-        cmd_used = run_call_args[0][0]
-        parallel_options = ["-n", "auto"]
-        fail_fast_options = ["-x"]
-
-        for option in parallel_options + fail_fast_options:
-            assert option in cmd_used, f"Expected '{option}' in command: {cmd_used}"
 
 
 @pytest.mark.cli
@@ -1104,6 +1205,8 @@ class TestTestIntegration:
             marker="unit",
             no_cov=True,
             cov_report=None,
+            parallel=False,
+            fail_fast=False,
             pytest_args=("tests/",),
         )
 

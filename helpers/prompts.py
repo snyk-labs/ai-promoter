@@ -2,38 +2,77 @@ from flask import render_template, current_app
 from datetime import datetime
 from markupsafe import Markup
 
-# Define character limits for different platforms
-LINKEDIN_CHAR_LIMIT = 3000
-URL_CHAR_APPROX = 30
+# Import the new simplified architecture
+from helpers.content_generator import ContentGenerator, Platform
 
 
 def get_platform_config(platform):
     """
     Get platform-specific configuration for social media posts.
 
+    This function now uses the new simplified architecture.
+
     Args:
-        platform: String platform name ('linkedin' or 'generic')
+        platform: String platform name ('linkedin', 'twitter', 'facebook', or 'generic')
 
     Returns:
         Dictionary with platform config values
     """
-    configs = {
-        "linkedin": {
-            "name": "LinkedIn",
-            "max_length": LINKEDIN_CHAR_LIMIT,
-            "max_tokens": 700,
-            "url_char_approx": URL_CHAR_APPROX,
-            "style": "Professional and informative, focusing on value and insights",
-        },
-        "generic": {
-            "name": "Generic Platform",
-            "max_length": LINKEDIN_CHAR_LIMIT,
-            "max_tokens": 700,
-            "url_char_approx": URL_CHAR_APPROX,
-            "style": "Engaging and informative, focusing on key value propositions",
-        },
+    # Create a temporary generator to access platform configs
+    # We don't need the full generator, just the config
+    try:
+        generator = ContentGenerator()
+    except Exception:
+        # If we can't create a generator (e.g., no API key), use default configs
+        generator = None
+
+    # Convert string to Platform enum
+    platform_map = {
+        "linkedin": Platform.LINKEDIN,
+        "twitter": Platform.TWITTER,
+        "facebook": Platform.FACEBOOK,
+        "generic": Platform.LINKEDIN,  # Default to LinkedIn for generic
     }
-    return configs.get(platform, configs["generic"])
+
+    platform_enum = platform_map.get(platform.lower(), Platform.LINKEDIN)
+
+    if generator:
+        config = generator.get_platform_config(platform_enum)
+    else:
+        # Fallback configs if generator can't be created
+        fallback_configs = {
+            Platform.LINKEDIN: {
+                "name": "LinkedIn",
+                "max_length": 3000,
+                "max_tokens": 700,
+                "style": "Professional",
+            },
+            Platform.TWITTER: {
+                "name": "Twitter",
+                "max_length": 280,
+                "max_tokens": 100,
+                "style": "Concise",
+            },
+            Platform.FACEBOOK: {
+                "name": "Facebook",
+                "max_length": 63206,
+                "max_tokens": 800,
+                "style": "Conversational",
+            },
+        }
+        fallback = fallback_configs.get(
+            platform_enum, fallback_configs[Platform.LINKEDIN]
+        )
+        config = type("Config", (), fallback)()
+
+    # Convert to legacy dictionary format for backward compatibility
+    return {
+        "name": getattr(config, "name", platform_enum.value.title()),
+        "max_length": config.max_length,
+        "max_tokens": config.max_tokens,
+        "url_char_approx": 30,  # Standard URL approximation
+        "style": config.style,
+    }
 
 
 def format_time_context(publish_date):

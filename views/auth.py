@@ -22,7 +22,8 @@ from helpers.linkedin_native import (
     revoke_linkedin_token,
     get_linkedin_user_profile,
 )
-from helpers.gemini import validate_post_length
+from helpers.platforms import get_platform_manager
+from helpers.content_generator import Platform
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -274,12 +275,16 @@ def linkedin_post():
         if not content_id:
             return jsonify({"success": False, "error": "Content ID is required"})
 
-        is_valid, length = validate_post_length(post_content, "linkedin")
-        if not is_valid:
+        # Use new platform manager for validation
+        platform_manager = get_platform_manager(Platform.LINKEDIN)
+        validation_result = platform_manager.validate_content(post_content)
+
+        if not validation_result["valid"]:
+            error_message = "; ".join(validation_result["errors"])
             return jsonify(
                 {
                     "success": False,
-                    "error": f"Post exceeds LinkedIn character limit ({length} characters)",
+                    "error": f"Post validation failed: {error_message}",
                 }
             )
 

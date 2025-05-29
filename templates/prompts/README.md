@@ -55,23 +55,23 @@ The templates use Jinja2's template inheritance to create a flexible and DRY sys
 
 ## How to Use
 
-The templates are used by the `helpers/prompt_templates.py` module, which provides functions for rendering the templates:
+The templates are used by the `helpers/prompts.py` module, which provides functions for rendering the templates:
 
 ```python
-from helpers.prompt_templates import render_system_prompt, render_user_prompt
+from helpers.prompts import render_system_prompt, render_user_prompt
 
-# Render a system prompt for a podcast
+# Render a system prompt for content
 system_prompt = render_system_prompt(
-    podcast_episode,
-    current_user,
-    platform=SocialPlatform.TWITTER
+    platform="twitter",
+    retry_attempt=0,
+    last_length=0
 )
 
-# Render a user prompt for a podcast
+# Render a user prompt for content
 user_prompt = render_user_prompt(
-    podcast_episode,
+    content_item,
     current_user,
-    platform=SocialPlatform.TWITTER
+    platform="twitter"
 )
 ```
 
@@ -80,12 +80,12 @@ user_prompt = render_user_prompt(
 To modify the prompts:
 
 1. Edit the appropriate template file
-2. For major changes, update the corresponding variables in `helpers/prompt_templates.py`
+2. For major changes, update the corresponding variables in `helpers/prompts.py`
 
 ## Adding New Content Types
 
 To add a new content type:
 
-1. Add a new enum value to `ContentType` in `helpers/prompt_templates.py`
+1. Add a new enum value to `Platform` in `helpers/content_generator.py`
 2. Create new templates: `new_type_system.html` and `new_type_user.html`
-3. Update the `get_content_type_info` and template selection logic in `helpers/prompt_templates.py` 
+3. Update the `get_content_type_info` and template selection logic in `helpers/prompts.py` 

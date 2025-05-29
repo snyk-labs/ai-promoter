@@ -710,19 +710,28 @@ window.addEventListener('DOMContentLoaded', () => {
 
         let responseText = ''; // To store raw response text
         try {
-            // Step 1: Dispatch the task
-            const dispatchResponse = await fetch(`/api/promote/${currentContentId}`, {
+            // Step 1: Dispatch the modern content generation task
+            const requestBody = {
+                platforms: ["linkedin"], // For now, still LinkedIn only to maintain compatibility
+                config: {
+                    model_name: "gemini-1.5-pro",
+                    temperature: 0.7,
+                    max_retries: 3
+                }
+            };
+
+            const dispatchResponse = await fetch(`/api/content/${currentContentId}/generate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({}) // Empty body as content_id is in URL
+                body: JSON.stringify(requestBody)
             });
 
             responseText = await dispatchResponse.text(); // Get raw text first
 
             if (!dispatchResponse.ok) {
-                let errorMsg = 'Failed to start social media post generation.';
+                let errorMsg = 'Failed to start content generation.';
                 try {
                     const errorData = JSON.parse(responseText); // Try to parse the raw text
                     errorMsg = errorData.error || errorMsg;
@@ -737,36 +746,36 @@ window.addEventListener('DOMContentLoaded', () => {
             const taskId = dispatchData.task_id;
 
             if (!taskId) {
-                throw new Error('Task ID not received for social media post generation.');
+                throw new Error('Task ID not received for content generation.');
             }
 
-            showToast('Social post generation started...', 'info');
+            showToast('Content generation started...', 'info');
 
-            // Step 2: Poll for task status
-            pollPromotionTaskStatus(taskId);
+            // Step 2: Poll for task status using the modern endpoint
+            pollContentGenerationStatus(taskId);
 
         } catch (error) {
             document.getElementById('loadingSpinner').classList.add('hidden');
             const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = error.message || 'Failed to start social media post generation. Please try again.';
+            errorDiv.textContent = error.message || 'Failed to start content generation. Please try again.';
             errorDiv.classList.remove('hidden');
-            showToast(error.message || 'Failed to start post generation.', 'error');
+            showToast(error.message || 'Failed to start content generation.', 'error');
         }
     }
 
-    async function pollPromotionTaskStatus(taskId) {
+    async function pollContentGenerationStatus(taskId) {
         try {
-            const response = await fetch(`/api/promote_task_status/${taskId}`);
+            const response = await fetch(`/api/content/${currentContentId}/generate/status/${taskId}`);
             const data = await response.json();
 
             if (data.status === 'SUCCESS') {
                 document.getElementById('loadingSpinner').classList.add('hidden');
-                showToast(data.message || 'Posts generated successfully!', 'success');
+                showToast(data.message || 'Content generated successfully!', 'success');
 
                 const errorDiv = document.getElementById('errorMessage');
                 const linkedinPostDiv = document.getElementById('linkedinPost');
                 const postToLinkedInButton = linkedinPostDiv.querySelector('button[onclick="postToLinkedIn()"]');
-                const linkedinAuthMessageDiv = document.getElementById('linkedinAuthMessage'); // Assuming this ID will be added to the HTML
+                const linkedinAuthMessageDiv = document.getElementById('linkedinAuthMessage');
 
                 // Reset states
                 errorDiv.classList.add('hidden');
@@ -775,66 +784,87 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (postToLinkedInButton) postToLinkedInButton.classList.add('hidden');
                 if (linkedinAuthMessageDiv) {
                     linkedinAuthMessageDiv.classList.add('hidden');
-                    linkedinAuthMessageDiv.innerHTML = ''; // Clear previous message
+                    linkedinAuthMessageDiv.innerHTML = '';
                 }
 
-                let somethingWasDisplayed = false; // To track if any primary content (post or error) is shown
+                let somethingWasDisplayed = false;
 
-                if (data.linkedin) {
+                // Handle the new response structure
+                const platforms = data.platforms || {};
+                const linkedinResult = platforms.linkedin;
+                const userAuthorizations = data.user_authorizations || {};
+
+                if (linkedinResult && linkedinResult.success && linkedinResult.content) {
                     linkedinPostDiv.classList.remove('hidden');
                     const linkedinTextarea = document.getElementById('linkedinContentEditable');
-                    const charCounterElement = document.getElementById('charCounter'); // Get the specific char counter for promote modal
-                    linkedinTextarea.value = data.linkedin;
+                    const charCounterElement = document.getElementById('charCounter');
+                    linkedinTextarea.value = linkedinResult.content;
 
                     if (linkedinTextarea && charCounterElement) {
-                        linkedinTextarea.removeEventListener('input', () => updateCharacterCount(linkedinTextarea, charCounterElement)); // Remove if already exists, ensure correct args
+                        linkedinTextarea.removeEventListener('input', () => updateCharacterCount(linkedinTextarea, charCounterElement));
                         linkedinTextarea.addEventListener('input', () => updateCharacterCount(linkedinTextarea, charCounterElement));
-                        updateCharacterCount(linkedinTextarea, charCounterElement); // Initial count
+                        updateCharacterCount(linkedinTextarea, charCounterElement);
                     }
                     somethingWasDisplayed = true;
 
-                    if (data.linkedin_authorized_for_posting) {
+                    // Check authorization using the new structure
+                    if (userAuthorizations.linkedin) {
                         if (postToLinkedInButton) postToLinkedInButton.classList.remove('hidden');
                     } else {
                         if (postToLinkedInButton) postToLinkedInButton.classList.add('hidden');
                         if (linkedinAuthMessageDiv) {
-                            // Construct the profile URL.
                             const profileUrl = '/auth/profile';
                             linkedinAuthMessageDiv.innerHTML = `To enable one-click posting, please <a href="${profileUrl}" class="font-semibold hover:underline">connect your LinkedIn account</a> on your profile page.`;
                             linkedinAuthMessageDiv.classList.remove('hidden');
                         }
                     }
-                }
 
-                if (data.warnings && data.warnings.length > 0) {
-                    errorDiv.textContent = data.warnings.join('\n');
+                    // Show generation metadata if available
+                    if (linkedinResult.source === 'ai_generated') {
+                        console.log(`LinkedIn content generated in ${linkedinResult.attempts} attempts, ${linkedinResult.length} characters`);
+                    } else if (linkedinResult.source === 'user_provided') {
+                        console.log(`Using user-provided content, ${linkedinResult.length} characters`);
+                    }
+                } else if (linkedinResult && !linkedinResult.success) {
+                    // Handle generation failure for LinkedIn
+                    const errorMessage = linkedinResult.error || 'LinkedIn content generation failed';
+                    errorDiv.textContent = `LinkedIn: ${errorMessage}`;
                     errorDiv.classList.remove('hidden');
                     somethingWasDisplayed = true;
                 }
 
-                // If after checking for linkedin post and warnings, nothing is set to be displayed (e.g. post failed to generate and no specific warnings)
-                // This case should be less common now that we always try to generate.
-                if (!somethingWasDisplayed && !(data.linkedin && data.warnings && data.warnings.length === 0)) {
-                    errorDiv.textContent = 'Social media post could not be generated at this time. Please try again later.';
+                // Handle warnings from the new structure
+                if (data.warnings && data.warnings.length > 0) {
+                    const existingError = errorDiv.textContent;
+                    const warningText = data.warnings.join('\n');
+                    errorDiv.textContent = existingError ? `${existingError}\n\n${warningText}` : warningText;
+                    errorDiv.classList.remove('hidden');
+                    somethingWasDisplayed = true;
+                }
+
+                // If nothing was displayed, show a generic error
+                if (!somethingWasDisplayed) {
+                    errorDiv.textContent = 'Content could not be generated at this time. Please try again later.';
                     errorDiv.classList.remove('hidden');
                 }
 
             } else if (data.status === 'FAILURE') {
                 document.getElementById('loadingSpinner').classList.add('hidden');
                 const errorDiv = document.getElementById('errorMessage');
-                errorDiv.textContent = data.message || 'Social media post generation failed. Please try again.';
+                const errorMessage = data.error || data.message || 'Content generation failed. Please try again.';
+                errorDiv.textContent = errorMessage;
                 errorDiv.classList.remove('hidden');
-                showToast(data.message || 'Post generation failed.', 'error');
+                showToast(errorMessage, 'error');
             } else { // PENDING or other intermediate states
                 // Continue polling
-                setTimeout(() => pollPromotionTaskStatus(taskId), 3000);
+                setTimeout(() => pollContentGenerationStatus(taskId), 3000);
             }
         } catch (error) {
             document.getElementById('loadingSpinner').classList.add('hidden');
             const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = 'Error checking promotion status. Please try again.';
+            errorDiv.textContent = 'Error checking content generation status. Please try again.';
             errorDiv.classList.remove('hidden');
-            showToast('Error checking promotion status.', 'error');
+            showToast('Error checking content generation status.', 'error');
         }
     }
 

@@ -4,8 +4,12 @@ from models import Content
 from datetime import datetime, timezone
 import logging
 from extensions import db  # Import the shared db instance
-from tasks.promote import generate_social_media_post_task  # Import the new Celery task
+from tasks.promote import (
+    generate_content_task,
+    post_to_linkedin_task,
+)  # Import LinkedIn posting task for status checking
 from celery.result import AsyncResult  # To check task status
+from helpers import Platform  # Import new architecture components
 
 logger = logging.getLogger(__name__)  # Initialize the logger for this module
 
@@ -13,22 +17,74 @@ logger = logging.getLogger(__name__)  # Initialize the logger for this module
 bp = Blueprint("api", __name__, url_prefix="/api")
 
 
-@bp.route("/promote/<int:content_id>", methods=["POST"])
+@bp.route("/content/<int:content_id>/generate", methods=["POST"])
 @login_required
-def promote_content(content_id):
-    """Dispatch a Celery task to generate social media posts for a content item."""
+def generate_content_modern(content_id):
+    """
+    Modern API endpoint to generate content for multiple platforms using the new architecture.
+
+    Request body:
+    {
+        "platforms": ["linkedin", "twitter", "facebook"],  // optional, defaults to ["linkedin"]
+        "config": {  // optional
+            "model_name": "gemini-1.5-pro",
+            "temperature": 0.7,
+            "max_retries": 3,
+            "max_tokens": 500
+        }
+    }
+    """
     try:
-        # Ensure content exists, though the task will also check
+        # Ensure content exists
         content = Content.query.get_or_404(content_id)
 
-        # Dispatch the Celery task
-        # Pass current_user.id instead of the full user object
-        task = generate_social_media_post_task.delay(
-            content_id=content.id, user_id=current_user.id
+        # Parse request body
+        data = request.get_json() or {}
+        platforms = data.get("platforms", ["linkedin"])
+        config = data.get("config", {})
+
+        # Validate platforms
+        valid_platforms = ["linkedin", "twitter", "facebook"]
+        invalid_platforms = [p for p in platforms if p.lower() not in valid_platforms]
+        if invalid_platforms:
+            return (
+                jsonify(
+                    {
+                        "error": f"Invalid platforms: {invalid_platforms}. Valid platforms: {valid_platforms}"
+                    }
+                ),
+                400,
+            )
+
+        # Validate config if provided
+        if config:
+            valid_config_keys = [
+                "model_name",
+                "temperature",
+                "max_retries",
+                "max_tokens",
+            ]
+            invalid_keys = [k for k in config.keys() if k not in valid_config_keys]
+            if invalid_keys:
+                return (
+                    jsonify(
+                        {
+                            "error": f"Invalid config keys: {invalid_keys}. Valid keys: {valid_config_keys}"
+                        }
+                    ),
+                    400,
+                )
+
+        # Dispatch the modern Celery task
+        task = generate_content_task.delay(
+            content_id=content.id,
+            user_id=current_user.id,
+            platforms=platforms,
+            config=config,
         )
 
         logger.info(
-            f"Dispatched generate_social_media_post_task for content_id: {content_id}, task_id: {task.id}"
+            f"Dispatched generate_content_task for content_id: {content_id}, platforms: {platforms}, task_id: {task.id}"
         )
 
         # Return the task ID to the client for polling
@@ -36,8 +92,10 @@ def promote_content(content_id):
             jsonify(
                 {
                     "task_id": task.id,
-                    "message": "Social media post generation has started.",
-                    "content_id": content.id,  # Keep content_id for client-side reference if needed
+                    "message": "Content generation has started.",
+                    "content_id": content.id,
+                    "platforms": platforms,
+                    "config": config,
                 }
             ),
             202,
@@ -45,51 +103,143 @@ def promote_content(content_id):
 
     except Exception as e:
         logger.error(
-            f"Error dispatching promotion task for content {content_id}: {str(e)}"
+            f"Error dispatching modern content generation task for content {content_id}: {str(e)}"
         )
         return (
             jsonify(
                 {
-                    "error": f"An unexpected error occurred while starting post generation: {str(e)}"
+                    "error": f"An unexpected error occurred while starting content generation: {str(e)}"
                 }
             ),
             500,
         )
 
 
-@bp.route("/promote_task_status/<task_id>", methods=["GET"])
+@bp.route("/content/<int:content_id>/generate/status/<task_id>", methods=["GET"])
 @login_required
-def promote_task_status(task_id):
-    """Check the status of a generate_social_media_post_task."""
-    logger.info(f"Checking promote_task_status for task_id: {task_id}")
-    task = generate_social_media_post_task.AsyncResult(task_id)
+def generate_content_status(content_id, task_id):
+    """Check the status of a generate_content_task (modern API)."""
+    logger.info(
+        f"Checking generate_content_status for content_id: {content_id}, task_id: {task_id}"
+    )
+    task = generate_content_task.AsyncResult(task_id)
 
     response_data = {"task_id": task_id, "status": task.state}
 
     try:
-        logger.debug(f"Promote task {task_id} state: {task.state}")
+        logger.debug(f"Content generation task {task_id} state: {task.state}")
 
         if task.state == "PENDING":
-            response_data["message"] = "Post generation is pending."
+            response_data["message"] = "Content generation is pending."
         elif task.state == "FAILURE":
-            response_data["message"] = f"Post generation failed: {str(task.info)}"
-            logger.error(f"Promote task {task_id} FAILED. Info: {task.info}")
+            response_data["message"] = f"Content generation failed: {str(task.info)}"
+            response_data["error"] = str(task.info)
+            logger.error(f"Content generation task {task_id} FAILED. Info: {task.info}")
         elif task.state == "SUCCESS":
-            response_data["message"] = "Post generation completed successfully."
+            response_data["message"] = "Content generation completed successfully."
             result = task.result
-            response_data["linkedin"] = result.get("linkedin")
-            response_data["warnings"] = result.get("warnings")
-            response_data["content_id"] = result.get("content_id")  # From task result
-            response_data["linkedin_authorized_for_posting"] = (
-                current_user.linkedin_authorized
-            )
+            response_data.update(result)  # Include all result data
+
+            # Add user authorization status for each platform
+            response_data["user_authorizations"] = {
+                "linkedin": current_user.linkedin_authorized,
+                # Add other platforms as they're implemented
+            }
+
             logger.info(
-                f"Promote task {task_id} SUCCEEDED. Result: {result}, LinkedIn Authorized: {current_user.linkedin_authorized}"
+                f"Content generation task {task_id} SUCCEEDED. Platforms: {list(result.get('platforms', {}).keys())}"
             )
         else:
             response_data["message"] = f"Task is in an unknown state: {task.state}"
             logger.warning(
-                f"Promote task {task_id} is in an UNKNOWN state: {task.state}. Info: {task.info}"
+                f"Content generation task {task_id} is in an UNKNOWN state: {task.state}. Info: {task.info}"
+            )
+
+    except Exception as e:
+        logger.exception(
+            f"Unexpected error in generate_content_status for task_id {task_id}"
+        )
+        response_data["status"] = "ERROR"
+        response_data["message"] = f"A server error occurred: {str(e)}"
+        return jsonify(response_data), 500
+
+    logger.debug(
+        f"Returning generate_content_status response for {task_id}: {response_data}"
+    )
+    return jsonify(response_data)
+
+
+# Remove unused legacy API endpoints
+# @bp.route("/promote/<int:content_id>", methods=["POST"])
+# @login_required
+# def promote_content(content_id):
+#     """Legacy API endpoint - delegates to modern endpoint for LinkedIn only."""
+#     try:
+#         # Ensure content exists, though the task will also check
+#         content = Content.query.get_or_404(content_id)
+
+#         # Dispatch the legacy Celery task (which delegates to the new one)
+#         task = generate_social_media_post_task.delay(
+#             content_id=content.id, user_id=current_user.id
+#         )
+
+#         logger.info(
+#             f"Dispatched legacy generate_social_media_post_task for content_id: {content_id}, task_id: {task.id}"
+#         )
+
+#         # Return the task ID to the client for polling
+#         return (
+#             jsonify(
+#                 {
+#                     "task_id": task.id,
+#                     "message": "Social media post generation has started.",
+#                     "content_id": content.id,  # Keep content_id for client-side reference if needed
+#                 }
+#             ),
+#             202,
+#         )  # Accepted
+
+#     except Exception as e:
+#         logger.error(
+#             f"Error dispatching legacy promotion task for content {content_id}: {str(e)}"
+#         )
+#         return (
+#             jsonify(
+#                 {
+#                     "error": f"An unexpected error occurred while starting post generation: {str(e)}"
+#                 }
+#             ),
+#             500,
+#         )
+
+
+@bp.route("/promote_task_status/<task_id>", methods=["GET"])
+@login_required
+def promote_task_status(task_id):
+    """Check the status of a post_to_linkedin_task (LinkedIn posting)."""
+    logger.info(f"Checking LinkedIn post status for task_id: {task_id}")
+    task = post_to_linkedin_task.AsyncResult(task_id)
+
+    response_data = {"task_id": task_id, "status": task.state}
+
+    try:
+        logger.debug(f"LinkedIn post task {task_id} state: {task.state}")
+
+        if task.state == "PENDING":
+            response_data["message"] = "LinkedIn posting is pending."
+        elif task.state == "FAILURE":
+            response_data["message"] = f"LinkedIn posting failed: {str(task.info)}"
+            logger.error(f"LinkedIn post task {task_id} FAILED. Info: {task.info}")
+        elif task.state == "SUCCESS":
+            response_data["message"] = "LinkedIn posting completed successfully."
+            result = task.result
+            response_data["status_result"] = result.get("status")
+            response_data["post_url"] = result.get("post_url")
+            logger.info(f"LinkedIn post task {task_id} SUCCEEDED. Result: {result}")
+        else:
+            response_data["message"] = f"Task is in an unknown state: {task.state}"
+            logger.warning(
+                f"LinkedIn post task {task_id} is in an UNKNOWN state: {task.state}. Info: {task.info}"
             )
 
     except Exception as e:
@@ -97,7 +247,7 @@ def promote_task_status(task_id):
             f"Unexpected error in promote_task_status for task_id {task_id}"
         )
         response_data["status"] = "ERROR"
-        response_data["message"] = f"An server error occurred: {str(e)}"
+        response_data["message"] = f"A server error occurred: {str(e)}"
         return jsonify(response_data), 500
 
     logger.debug(

@@ -126,11 +126,15 @@ class Config:
     LINKEDIN_CLIENT_ID = os.environ.get("LINKEDIN_CLIENT_ID")
     LINKEDIN_CLIENT_SECRET = os.environ.get("LINKEDIN_CLIENT_SECRET")
 
-    # LinkedIn keys are required for LinkedIn integration
-    if not LINKEDIN_CLIENT_ID:
-        raise ValueError("LINKEDIN_CLIENT_ID is required for LinkedIn integration")
-    if not LINKEDIN_CLIENT_SECRET:
-        raise ValueError("LINKEDIN_CLIENT_SECRET is required for LinkedIn integration")
+    # LinkedIn keys are required for LinkedIn integration (except during testing)
+    TESTING = os.environ.get("TESTING", "false").lower() == "true"
+    if not TESTING:
+        if not LINKEDIN_CLIENT_ID:
+            raise ValueError("LINKEDIN_CLIENT_ID is required for LinkedIn integration")
+        if not LINKEDIN_CLIENT_SECRET:
+            raise ValueError(
+                "LINKEDIN_CLIENT_SECRET is required for LinkedIn integration"
+            )
 
     # Mail configuration
     MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")

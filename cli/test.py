@@ -16,7 +16,7 @@ class TestRunner:
         self.exit_code = 0
         self.coverage_enabled = True
 
-    def validate_environment(self, parallel: bool = False) -> bool:
+    def validate_environment(self) -> bool:
         """Validate that the testing environment is properly set up."""
         # Check if pytest is available
         try:
@@ -30,23 +30,6 @@ class TestRunner:
                 )
             )
             return False
-
-        # Check if pytest-xdist is available (if parallel execution is requested)
-        if parallel:
-            try:
-                subprocess.run(
-                    ["python", "-c", "import xdist"],
-                    capture_output=True,
-                    check=True,
-                )
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                click.echo(
-                    click.style(
-                        "❌ pytest-xdist not found. Install with: pip install pytest-xdist",
-                        fg="red",
-                    )
-                )
-                return False
 
         # Check if coverage is available (if needed)
         if self.coverage_enabled:
@@ -75,7 +58,6 @@ class TestRunner:
         marker: Optional[str],
         no_cov: bool,
         cov_report: Optional[str],
-        parallel: bool,
         fail_fast: bool,
         pytest_args: Tuple[str, ...],
     ) -> List[str]:
@@ -108,10 +90,6 @@ class TestRunner:
 
         if marker:
             cmd.extend(["-m", marker])
-
-        # Add parallel execution option
-        if parallel:
-            cmd.extend(["-n", "auto"])
 
         # Add fail-fast option
         if fail_fast:
@@ -203,9 +181,6 @@ class TestRunner:
     type=click.Choice(["term", "html", "xml", "term-missing"]),
     help="Coverage report format (can be used multiple times)",
 )
-@click.option(
-    "--parallel", is_flag=True, help="Run tests in parallel using pytest-xdist"
-)
 @click.option("--fail-fast", is_flag=True, help="Stop on first failure")
 @click.argument("pytest_args", nargs=-1, type=click.UNPROCESSED)
 def test_command(
@@ -214,28 +189,25 @@ def test_command(
     marker: Optional[str],
     no_cov: bool,
     cov_report: Optional[str],
-    parallel: bool,
     fail_fast: bool,
     pytest_args: Tuple[str, ...],
 ) -> None:
-    """Run the test suite with optional coverage reporting.
+    """Run tests with pytest.
 
     Examples:
-        flask test                          # Run all tests with coverage
-        flask test --no-cov                 # Run tests without coverage
-        flask test -k "test_user"           # Run tests matching "test_user"
-        flask test -m "slow"                # Run tests marked as "slow"
-        flask test --parallel               # Run tests in parallel
-        flask test --fail-fast              # Stop on first failure
-        flask test tests/test_models.py     # Run specific test file
+        flask test                    # Run all tests
+        flask test -v                 # Verbose output
+        flask test -k user            # Run tests matching 'user'
+        flask test -m slow            # Run tests marked as 'slow'
+        flask test --no-cov           # Disable coverage
+        flask test --fail-fast        # Stop on first failure
+        flask test tests/models/      # Run specific directory
+        flask test tests/test_user.py # Run specific file
     """
-
-    # Initialize test runner
     runner = TestRunner()
-    runner.coverage_enabled = not no_cov
 
     # Validate environment
-    if not runner.validate_environment(parallel):
+    if not runner.validate_environment():
         sys.exit(1)
 
     # Build pytest command
@@ -245,12 +217,11 @@ def test_command(
         marker=marker,
         no_cov=no_cov,
         cov_report=cov_report,
-        parallel=parallel,
         fail_fast=fail_fast,
         pytest_args=pytest_args,
     )
 
-    # Set up environment
+    # Set up test environment
     env = runner.setup_test_environment()
 
     # Run tests
@@ -259,4 +230,5 @@ def test_command(
     # Print summary
     runner.print_summary(exit_code, no_cov)
 
+    # Exit with the same code as pytest
     sys.exit(exit_code)

@@ -11,15 +11,15 @@ def app():
     Creates a Flask app instance configured for testing.
     """
     flask_app = create_app()
-    
+
     # Force test configuration
     flask_app.config.update(
         {
             "TESTING": True,
             "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-            "WTF_CSRF_ENABLED": False,  
-            "LOGIN_DISABLED": True,  
-            "SERVER_NAME": "localhost.localdomain",  
+            "WTF_CSRF_ENABLED": False,
+            "LOGIN_DISABLED": True,
+            "SERVER_NAME": "localhost.localdomain",
             "APPLICATION_ROOT": "/",
             "PREFERRED_URL_SCHEME": "http",
             # Disable background tasks during testing
@@ -40,9 +40,9 @@ def db(app):
     with app.app_context():
         # Create all tables fresh for each test
         _db.create_all()
-        
+
         yield _db
-        
+
         # Clean up: drop all tables after each test
         _db.drop_all()
 

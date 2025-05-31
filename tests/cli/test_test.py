@@ -225,7 +225,6 @@ class TestTestHelpers:
             AssertionError: If any expected message is not found
         """
         echo_calls = [str(call[0][0]) for call in mock_echo.call_args_list]
-        all_echo_output = " ".join(echo_calls)
 
         for message in expected_messages:
             assert any(
@@ -341,9 +340,7 @@ class BaseTestCommandTest:
     def verify_standard_test_flow(mock_runner: Mock) -> None:
         """Verify that the standard test execution flow occurred."""
         TestTestHelpers.assert_runner_method_called(mock_runner, "validate_environment")
-        TestTestHelpers.assert_runner_method_called(
-            mock_runner, "build_pytest_command"
-        )
+        TestTestHelpers.assert_runner_method_called(mock_runner, "build_pytest_command")
         TestTestHelpers.assert_runner_method_called(
             mock_runner, "setup_test_environment"
         )
@@ -447,7 +444,7 @@ class TestTestRunner:
 
         # Should include base command and coverage by default
         expected_base = TestData.DEFAULT_PYTEST_COMMAND
-        assert cmd[:len(expected_base)] == expected_base
+        assert cmd[: len(expected_base)] == expected_base
 
         # Should include default coverage options
         TestTestHelpers.assert_command_args_contain(
@@ -487,7 +484,15 @@ class TestTestRunner:
         )
 
         # Should include all specified options
-        expected_options = ["-v", "-k", "test_user", "-m", "unit", "tests/models/", "-s"]
+        expected_options = [
+            "-v",
+            "-k",
+            "test_user",
+            "-m",
+            "unit",
+            "tests/models/",
+            "-s",
+        ]
         TestTestHelpers.assert_command_args_contain(cmd, expected_options)
 
     def test_build_pytest_command_custom_coverage_report(self) -> None:
@@ -749,9 +754,7 @@ class TestTestCommand(BaseTestCommandTest):
 
         # Check for examples - use the actual text from the docstring
         assert "flask test" in help_text
-        assert (
-            "Run all tests" in help_text
-        )  # Part of the examples
+        assert "Run all tests" in help_text  # Part of the examples
 
     @patch("cli.test.TestRunner")
     def test_test_command_default_behavior(

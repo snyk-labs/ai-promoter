@@ -1,5 +1,3 @@
-# Add tests for models/share.py here
-
 import pytest
 import uuid
 from contextlib import contextmanager

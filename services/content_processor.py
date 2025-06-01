@@ -28,6 +28,20 @@ class ContentProcessor:
         genai.configure(api_key=api_key)
         return genai.GenerativeModel("gemini-1.5-pro")
 
+    def _get_safe_value(self, content_info, key, current_value, fallback=""):
+        """Safely extract a value from content_info, preserving existing values when None/empty."""
+        extracted_value = content_info.get(key)
+
+        # If Gemini returned None, empty string, or "Not available", preserve existing value
+        if (
+            extracted_value is None
+            or extracted_value == ""
+            or extracted_value == "Not available"
+        ):
+            return current_value if current_value else fallback
+
+        return extracted_value
+
     def process_url(self, content_id: int, url: str):
         """Process a URL and update an existing content item."""
         logger.info(f"Processing URL: {url} for content_id: {content_id}")
@@ -96,10 +110,13 @@ class ContentProcessor:
                             f"Could not parse publish date '{publish_date_str}', using current time"
                         )
 
-            content_item.title = content_info.get("Title", content_item.title or "")
+            # Use safe value extraction to prevent None values from violating database constraints
+            content_item.title = self._get_safe_value(
+                content_info, "Title", content_item.title, "Untitled"
+            )
             content_item.scraped_content = markdown_content
-            content_item.excerpt = content_info.get(
-                "Description", content_item.excerpt or ""
+            content_item.excerpt = self._get_safe_value(
+                content_info, "Description", content_item.excerpt, ""
             )
             content_item.image_url = (
                 image_url_extracted if image_url_extracted else content_item.image_url

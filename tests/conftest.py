@@ -49,6 +49,14 @@ def app():
 
 
 @pytest.fixture()
+def client(app):
+    """
+    Function-scoped test client for making HTTP requests.
+    """
+    return app.test_client()
+
+
+@pytest.fixture()
 def db(app):
     """
     Function-scoped test database with complete isolation.

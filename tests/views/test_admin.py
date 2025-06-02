@@ -16,12 +16,12 @@ def create_admin_user(unique_id=None):
     """Create an admin user for testing."""
     if not unique_id:
         unique_id = create_unique_id()
-    
+
     user = User(
         email=f"admin-{unique_id}@example.com",
         name=f"Admin User {unique_id}",
         is_admin=True,
-        auth_type="password"
+        auth_type="password",
     )
     user.set_password("admin_password_123")
     return user
@@ -31,12 +31,12 @@ def create_regular_user(unique_id=None):
     """Create a regular user for testing."""
     if not unique_id:
         unique_id = create_unique_id()
-        
+
     user = User(
-        email=f"user-{unique_id}@example.com", 
+        email=f"user-{unique_id}@example.com",
         name=f"Regular User {unique_id}",
         is_admin=False,
-        auth_type="password"
+        auth_type="password",
     )
     user.set_password("user_password_123")
     return user
@@ -46,7 +46,7 @@ def create_form_data(unique_id=None, **overrides):
     """Helper to create form data for content creation."""
     if not unique_id:
         unique_id = create_unique_id()
-        
+
     defaults = {
         "url": f"https://example.com/article-{unique_id}",
         "context": f"Test context for {unique_id}",
@@ -88,6 +88,7 @@ class TestAdminDecoratorUnit:
     def test_admin_required_decorator_exists(self):
         """Test that admin_required decorator is importable."""
         from views.admin import admin_required
+
         assert callable(admin_required)
 
 
@@ -100,26 +101,26 @@ class TestContentCreationIntegration:
         """Test successful content creation."""
         unique_id = create_unique_id()
         admin_user = create_admin_user(unique_id)
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(admin_user)
             db.session.commit()
-            
+
             login_user(client, admin_user)
-            
+
             form_data = create_form_data(unique_id)
-            
+
             with patch("tasks.content.scrape_content_task.delay") as mock_task:
                 mock_task.return_value.id = f"task_{unique_id}"
-                
+
                 response = client.post("/admin/content/create", data=form_data)
-                
+
                 json_data = assert_json_response(response, 202)
                 assert json_data["task_id"] == f"task_{unique_id}"
                 assert json_data["message"] == "Content processing started."
                 assert "content_id" in json_data
-                
+
                 # Verify content was created in database
                 content = Content.query.filter_by(url=form_data["url"]).first()
                 assert content is not None
@@ -130,19 +131,19 @@ class TestContentCreationIntegration:
         """Test content creation with missing URL."""
         unique_id = create_unique_id()
         admin_user = create_admin_user(unique_id)
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(admin_user)
             db.session.commit()
-            
+
             login_user(client, admin_user)
-            
+
             form_data = create_form_data(unique_id)
             del form_data["url"]  # Remove URL
-            
+
             response = client.post("/admin/content/create", data=form_data)
-            
+
             json_data = assert_json_response(response, 400)
             assert json_data["error"] == "URL is required."
 
@@ -151,12 +152,12 @@ class TestContentCreationIntegration:
         unique_id = create_unique_id()
         admin_user = create_admin_user(unique_id)
         test_url = f"https://example.com/duplicate-{unique_id}"
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(admin_user)
             db.session.commit()
-            
+
             # Create existing content
             existing_content = Content(
                 url=test_url,
@@ -165,18 +166,18 @@ class TestContentCreationIntegration:
             )
             db.session.add(existing_content)
             db.session.commit()
-            
+
             login_user(client, admin_user)
-            
+
             form_data = create_form_data(unique_id, url=test_url)
-            
+
             response = client.post("/admin/content/create", data=form_data)
-            
+
             json_data = assert_json_response(response, 409)
             assert json_data["error"] == "This URL has already been added as content."
 
 
-@pytest.mark.integration 
+@pytest.mark.integration
 class TestTaskStatusIntegration:
     """Integration tests for task status functionality."""
 
@@ -184,21 +185,21 @@ class TestTaskStatusIntegration:
         """Test task status check for pending task."""
         unique_id = create_unique_id()
         admin_user = create_admin_user(unique_id)
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(admin_user)
             db.session.commit()
-            
+
             login_user(client, admin_user)
-            
+
             with patch("tasks.content.scrape_content_task.AsyncResult") as mock_result:
                 mock_task = MagicMock()
                 mock_task.state = "PENDING"
                 mock_result.return_value = mock_task
-                
+
                 response = client.get(f"/admin/task_status/task_{unique_id}")
-                
+
                 json_data = assert_json_response(response, 200)
                 assert json_data["task_id"] == f"task_{unique_id}"
                 assert json_data["status"] == "PENDING"
@@ -208,12 +209,12 @@ class TestTaskStatusIntegration:
         """Test task status check for successful task with content."""
         unique_id = create_unique_id()
         admin_user = create_admin_user(unique_id)
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(admin_user)
             db.session.commit()
-            
+
             # Create test content
             content = Content(
                 url=f"https://example.com/success-content-{unique_id}",
@@ -224,23 +225,23 @@ class TestTaskStatusIntegration:
             )
             db.session.add(content)
             db.session.commit()
-            
+
             login_user(client, admin_user)
-            
+
             with patch("tasks.content.scrape_content_task.AsyncResult") as mock_result:
                 mock_task = MagicMock()
                 mock_task.state = "SUCCESS"
                 mock_task.result = content.id
                 mock_result.return_value = mock_task
-                
+
                 response = client.get(f"/admin/task_status/task_{unique_id}")
-                
+
                 json_data = assert_json_response(response, 200)
                 assert json_data["status"] == "SUCCESS"
                 assert json_data["message"] == "Task completed successfully."
                 assert json_data["result"] == content.id
                 assert "content" in json_data
-                
+
                 content_data = json_data["content"]
                 assert content_data["id"] == content.id
                 assert content_data["title"] == f"Test Article {unique_id}"
@@ -249,25 +250,25 @@ class TestTaskStatusIntegration:
         """Test task status check for failed task."""
         unique_id = create_unique_id()
         admin_user = create_admin_user(unique_id)
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(admin_user)
             db.session.commit()
-            
+
             login_user(client, admin_user)
-            
+
             error_message = "Failed to scrape content"
-            
+
             with patch("tasks.content.scrape_content_task.AsyncResult") as mock_result:
                 mock_task = MagicMock()
                 mock_task.state = "FAILURE"
                 mock_task.info = error_message
                 mock_task.result = None
                 mock_result.return_value = mock_task
-                
+
                 response = client.get(f"/admin/task_status/task_{unique_id}")
-                
+
                 json_data = assert_json_response(response, 200)
                 assert json_data["status"] == "FAILURE"
                 assert json_data["message"] == error_message
@@ -276,19 +277,19 @@ class TestTaskStatusIntegration:
         """Test task status handles exceptions gracefully."""
         unique_id = create_unique_id()
         admin_user = create_admin_user(unique_id)
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(admin_user)
             db.session.commit()
-            
+
             login_user(client, admin_user)
-            
+
             with patch("views.admin.scrape_content_task.AsyncResult") as mock_result:
                 mock_result.side_effect = Exception("Celery connection error")
-                
+
                 response = client.get(f"/admin/task_status/task_{unique_id}")
-                
+
                 json_data = assert_json_response(response, 500)
                 assert json_data["task_id"] == f"task_{unique_id}"
                 assert json_data["status"] == "ERROR"
@@ -303,18 +304,18 @@ class TestAuthenticationIntegration:
         """Test that create_content requires admin role."""
         unique_id = create_unique_id()
         regular_user = create_regular_user(unique_id)
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(regular_user)
             db.session.commit()
-            
+
             login_user(client, regular_user, "user_password_123")
-            
+
             form_data = create_form_data(unique_id)
-            
+
             response = client.post("/admin/content/create", data=form_data)
-            
+
             # Should redirect to main page
             assert response.status_code == 302
 
@@ -322,14 +323,14 @@ class TestAuthenticationIntegration:
         """Test that admin routes return JSON errors for JSON requests."""
         unique_id = create_unique_id()
         regular_user = create_regular_user(unique_id)
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(regular_user)
             db.session.commit()
-            
+
             login_user(client, regular_user, "user_password_123")
-            
+
             # Make request with JSON accept header
             headers = {"Accept": "application/json"}
             response = client.post(
@@ -337,7 +338,7 @@ class TestAuthenticationIntegration:
                 data=create_form_data(unique_id),
                 headers=headers,
             )
-            
+
             json_data = assert_json_response(response, 403)
             assert json_data["error"] == "Admin access required."
 
@@ -351,32 +352,34 @@ class TestEdgeCasesIntegration:
         """Test content creation with various edge case URLs."""
         unique_id = create_unique_id()
         admin_user = create_admin_user(unique_id)
-        
+
         # Create different URL types with unique identifiers
         if url_type == "long":
             test_url = f"https://example.com/very-long-path-{unique_id}/" + "a" * 200
         elif url_type == "special_chars":
-            test_url = f"https://example.com/special-chars-{unique_id}?param=value&other=123"
+            test_url = (
+                f"https://example.com/special-chars-{unique_id}?param=value&other=123"
+            )
         else:  # unicode
             test_url = f"https://example.com/unicode-{unique_id}"
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(admin_user)
             db.session.commit()
-            
+
             login_user(client, admin_user)
-            
+
             form_data = create_form_data(unique_id, url=test_url)
-            
+
             with patch("tasks.content.scrape_content_task.delay") as mock_task:
                 mock_task.return_value.id = f"task_{unique_id}"
-                
+
                 response = client.post("/admin/content/create", data=form_data)
-                
+
                 json_data = assert_json_response(response, 202)
                 assert json_data["task_id"] == f"task_{unique_id}"
-                
+
                 # Verify URL was saved correctly
                 content = Content.query.filter_by(url=test_url).first()
                 assert content is not None
@@ -386,28 +389,31 @@ class TestEdgeCasesIntegration:
         """Test task status when content ID doesn't exist."""
         unique_id = create_unique_id()
         admin_user = create_admin_user(unique_id)
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(admin_user)
             db.session.commit()
-            
+
             login_user(client, admin_user)
-            
+
             non_existent_id = 99999
-            
+
             with patch("tasks.content.scrape_content_task.AsyncResult") as mock_result:
                 mock_task = MagicMock()
                 mock_task.state = "SUCCESS"
                 mock_task.result = non_existent_id
                 mock_result.return_value = mock_task
-                
+
                 response = client.get(f"/admin/task_status/task_{unique_id}")
-                
+
                 json_data = assert_json_response(response, 200)
                 assert json_data["status"] == "SUCCESS"
                 assert "content_error" in json_data
-                assert f"Content with ID {non_existent_id} not found" in json_data["content_error"]
+                assert (
+                    f"Content with ID {non_existent_id} not found"
+                    in json_data["content_error"]
+                )
 
 
 @pytest.mark.integration
@@ -418,34 +424,34 @@ class TestPerformanceIntegration:
         """Test performance with multiple content creation requests."""
         unique_id = create_unique_id()
         admin_user = create_admin_user(unique_id)
-        
+
         with app.app_context():
             db.create_all()
             # Clear any existing content to ensure clean test state
             Content.query.delete()
             db.session.commit()
-            
+
             db.session.add(admin_user)
             db.session.commit()
-            
+
             login_user(client, admin_user)
-            
+
             num_requests = 3  # Reduced for faster tests
-            
+
             with patch("tasks.content.scrape_content_task.delay") as mock_task:
                 for i in range(num_requests):
                     task_id = f"task_{unique_id}_{i}"
                     mock_task.return_value.id = task_id
-                    
+
                     form_data = create_form_data(
                         f"{unique_id}_{i}",  # Unique ID per iteration
-                        url=f"https://example.com/bulk-{unique_id}-{i}"
+                        url=f"https://example.com/bulk-{unique_id}-{i}",
                     )
-                    
+
                     response = client.post("/admin/content/create", data=form_data)
                     json_data = assert_json_response(response, 202)
                     assert json_data["task_id"] == task_id
-                
+
                 # Verify all content was created
                 assert Content.query.count() == num_requests
 
@@ -453,12 +459,12 @@ class TestPerformanceIntegration:
         """Test performance of task status queries."""
         unique_id = create_unique_id()
         admin_user = create_admin_user(unique_id)
-        
+
         with app.app_context():
             db.create_all()
             db.session.add(admin_user)
             db.session.commit()
-            
+
             # Create multiple content items
             contents = []
             for i in range(3):
@@ -470,9 +476,9 @@ class TestPerformanceIntegration:
                 db.session.add(content)
                 contents.append(content)
             db.session.commit()
-            
+
             login_user(client, admin_user)
-            
+
             # Test multiple task status requests
             with patch("tasks.content.scrape_content_task.AsyncResult") as mock_result:
                 for i, content in enumerate(contents):
@@ -480,10 +486,10 @@ class TestPerformanceIntegration:
                     mock_task.state = "SUCCESS"
                     mock_task.result = content.id
                     mock_result.return_value = mock_task
-                    
+
                     task_id = f"task_{unique_id}_{i}"
                     response = client.get(f"/admin/task_status/{task_id}")
-                    
+
                     json_data = assert_json_response(response, 200)
                     assert json_data["status"] == "SUCCESS"
                     assert json_data["content"]["id"] == content.id

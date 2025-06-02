@@ -1,5 +1,3 @@
-# Add tests for tasks/fetch_content.py here
-
 import pytest
 import uuid
 import xml.etree.ElementTree as ET

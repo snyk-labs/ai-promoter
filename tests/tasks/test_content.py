@@ -1,5 +1,3 @@
-# Add tests for tasks/content.py here
-
 import pytest
 import uuid
 from unittest.mock import patch, MagicMock

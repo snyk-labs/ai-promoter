@@ -1,14 +1,3 @@
-"""
-Tests for admin views (views/admin.py)
-
-This test suite follows the project's testing conventions:
-- Unit tests with @pytest.mark.unit
-- Integration tests with @pytest.mark.integration  
-- Clear test organization and naming
-- Proper mocking and isolation
-- Clean database state per test
-"""
-
 import pytest
 import uuid
 from unittest.mock import patch, MagicMock

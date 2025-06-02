@@ -1,32 +1,3 @@
-"""
-Comprehensive test suite for services/slack_service.py
-
-This module tests the Slack service functionality including:
-- User invitations to channels
-- Direct message sending
-- Error handling and edge cases
-- Performance and reliability scenarios
-
-Test Categories:
-- Unit tests: Test helper functions and isolated functionality
-- Integration tests: Test with Flask app context and mocked Slack API
-- Edge case tests: Test boundary conditions and invalid inputs
-- Performance tests: Test concurrent operations and reliability
-
-Usage:
-    # Run all tests
-    flask test tests/services/test_slack_service.py
-
-    # Run only unit tests
-    flask test tests/services/test_slack_service.py -m unit
-
-    # Run only integration tests
-    flask test tests/services/test_slack_service.py -m integration
-
-    # Skip slow tests
-    flask test tests/services/test_slack_service.py -m "not slow"
-"""
-
 import pytest
 import uuid
 from unittest.mock import patch, MagicMock

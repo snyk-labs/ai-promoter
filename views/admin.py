@@ -81,14 +81,16 @@ def create_content():
 def task_status(task_id):
     """Check the status of a Celery task."""
     logger.info(f"Checking task status for task_id: {task_id}")
-    task = scrape_content_task.AsyncResult(task_id)
 
     response_data = {
         "task_id": task_id,
-        "status": task.state,  # Default to task.state, even if None
+        "status": "ERROR",  # Default to ERROR, will be updated if successful
     }
 
     try:
+        task = scrape_content_task.AsyncResult(task_id)
+        response_data["status"] = task.state  # Update status if successful
+
         logger.debug(f"Task {task_id} state: {task.state}")
 
         if task.state == "PENDING":

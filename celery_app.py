@@ -12,6 +12,7 @@ import tasks.promote
 import tasks.notifications
 import tasks.fetch_content
 import tasks.linkedin_tasks
+import tasks.social_media
 
 from celery import Celery
 from config import Config  # Import Config to access REDIS_URL and other CELERY settings
@@ -29,6 +30,7 @@ celery = Celery(
         "tasks.notifications",
         "tasks.fetch_content",
         "tasks.linkedin_tasks",
+        "tasks.social_media",
     ],  # Ensure tasks from all modules are discovered
 )
 

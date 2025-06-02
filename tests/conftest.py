@@ -1,7 +1,21 @@
 import pytest
 from unittest.mock import patch
+import os
 
 from app import create_app, db as _db
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_environment():
+    """
+    Session-scoped fixture that automatically sets up the test environment.
+    This runs before any tests and ensures TESTING environment variable is set.
+    """
+    os.environ["TESTING"] = "true"
+    yield
+    # Cleanup after all tests
+    if "TESTING" in os.environ:
+        del os.environ["TESTING"]
 
 
 @pytest.fixture(scope="session")

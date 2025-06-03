@@ -147,6 +147,7 @@ class Config:
 
     # Slack Configuration
     SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
+    SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET")
     SLACK_DEFAULT_CHANNEL_ID = os.environ.get("SLACK_DEFAULT_CHANNEL_ID")
     SLACK_NOTIFICATIONS_ENABLED = (
         os.environ.get("SLACK_NOTIFICATIONS_ENABLED", "false").lower() == "true"

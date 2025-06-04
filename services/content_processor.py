@@ -3,7 +3,7 @@ import google.generativeai as genai
 import os
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from models.content import Content
 from extensions import db
 from flask import current_app
@@ -46,7 +46,7 @@ class ContentProcessor:
         """Process a URL and update an existing content item."""
         logger.info(f"Processing URL: {url} for content_id: {content_id}")
 
-        content_item = Content.query.get(content_id)
+        content_item = db.session.get(Content, content_id)
         if not content_item:
             logger.error(f"Content with ID {content_id} not found.")
             return None
@@ -95,7 +95,7 @@ class ContentProcessor:
                     image_url_extracted[0] if image_url_extracted else None
                 )
 
-            publish_date_val = datetime.utcnow()  # Default to current time
+            publish_date_val = datetime.now()  # Default to current time
             publish_date_str = content_info.get("Publish Date")
             if publish_date_str and publish_date_str != "Not available":
                 try:

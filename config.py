@@ -7,6 +7,57 @@ import ssl
 config_logger = logging.getLogger(__name__)
 
 
+def _parse_database_url(database_url_env: str | None) -> str | None:
+    """Parses and transforms a database URL from environment variables."""
+    if database_url_env is None:
+        config_logger.debug("None database_url_env provided to _parse_database_url.")
+        return None
+    # If database_url_env is an empty string, it should pass through as an empty string.
+    # Other falsy values like empty lists/dicts aren't expected here.
+
+    parsed_url = database_url_env
+    if parsed_url.startswith("postgres://"):
+        parsed_url = parsed_url.replace("postgres://", "postgresql://", 1)
+        config_logger.debug(f"Converted 'postgres://' to 'postgresql://': {parsed_url}")
+
+    # Covers 'postgresql://', 'sqlite:///', and other SQLAlchemy-compatible URIs
+    return parsed_url
+
+
+def _get_database_uri() -> str:
+    """Get the appropriate database URI based on environment."""
+    testing = os.environ.get("TESTING", "false").lower() == "true"
+
+    if testing:
+        # Always use in-memory SQLite for testing to prevent accidental writes.
+        uri = "sqlite:///:memory:"
+        config_logger.info(f"TESTING mode active. Forcing database URI to: {uri}")
+        # Log if DATABASE_URL is set in environment during testing, as it will be ignored for SQLALCHEMY_DATABASE_URI
+        if os.environ.get("DATABASE_URL"):
+            config_logger.warning(
+                "TESTING mode: DATABASE_URL environment variable is set but will be ignored. Using in-memory SQLite."
+            )
+        return uri
+    else:
+        # Non-testing mode: use DATABASE_URL or default to promoter.db
+        database_url_env = os.environ.get("DATABASE_URL")
+        parsed_url = _parse_database_url(database_url_env)
+
+        if parsed_url:
+            config_logger.info(f"Using database URI from DATABASE_URL: {parsed_url}")
+            return parsed_url
+        else:
+            # Construct default SQLite path relative to this config file's directory
+            default_sqlite_path = os.path.join(
+                os.path.abspath(os.path.dirname(__file__)), "promoter.db"
+            )
+            uri = "sqlite:///" + default_sqlite_path
+            config_logger.info(
+                f"DATABASE_URL not set and not in TESTING mode. Using default SQLite DB: {uri}"
+            )
+            return uri
+
+
 class Config:
     """Base configuration class."""
 
@@ -30,25 +81,8 @@ class Config:
     else:
         CONTENT_FEEDS = []
 
-    # Database configuration
-    # Construct default SQLite path relative to this config file's directory
-    _DEFAULT_SQLITE_PATH = os.path.join(
-        os.path.abspath(os.path.dirname(__file__)), "promoter.db"
-    )
-    _DEFAULT_SQLALCHEMY_DATABASE_URI = "sqlite:///" + _DEFAULT_SQLITE_PATH
-
-    database_url_env = os.environ.get("DATABASE_URL")
-    if database_url_env:
-        if database_url_env.startswith("postgres://"):
-            # Handle Heroku-style 'postgres://' prefix
-            SQLALCHEMY_DATABASE_URI = database_url_env.replace(
-                "postgres://", "postgresql://", 1
-            )
-        else:
-            # Covers 'postgresql://', 'sqlite:///', and other SQLAlchemy-compatible URIs
-            SQLALCHEMY_DATABASE_URI = database_url_env
-    else:
-        SQLALCHEMY_DATABASE_URI = _DEFAULT_SQLALCHEMY_DATABASE_URI
+    # Database configuration - set at class definition time
+    SQLALCHEMY_DATABASE_URI = _get_database_uri()
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

@@ -4,7 +4,7 @@ Tests for the LinkedIn platform manager.
 
 import pytest
 from unittest.mock import Mock, patch
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from helpers.platforms.linkedin import LinkedInManager
 
 
@@ -78,7 +78,7 @@ class LinkedInTestHelpers:
         if "token_expires_at" in kwargs:
             mock_user.linkedin_native_token_expires_at = kwargs["token_expires_at"]
         else:
-            mock_user.linkedin_native_token_expires_at = datetime.utcnow() + timedelta(
+            mock_user.linkedin_native_token_expires_at = datetime.now() + timedelta(
                 hours=1
             )
 
@@ -101,7 +101,7 @@ class LinkedInTestHelpers:
         return LinkedInTestHelpers.create_mock_user(
             user_id=user_id,
             access_token=TestConstants.EXPIRED_ACCESS_TOKEN,
-            token_expires_at=datetime.utcnow() - timedelta(hours=1),
+            token_expires_at=datetime.now() - timedelta(hours=1),
         )
 
     @staticmethod
@@ -450,7 +450,7 @@ class TestLinkedInManagerTokenRefresh:
                 # Mock the database import and operations
                 with patch("extensions.db") as mock_db:
                     with patch("helpers.platforms.linkedin.datetime") as mock_datetime:
-                        mock_datetime.utcnow.return_value = datetime.utcnow()
+                        mock_datetime.utcnow.return_value = datetime.now()
                         mock_datetime.timedelta = timedelta
 
                         result = manager._refresh_linkedin_token(user)

@@ -602,8 +602,8 @@ class TestMainViewsEdgeCases:
             login_user(client, admin_user)
 
             # Use a patch to simulate database error
-            with patch("models.content.Content.query") as mock_query:
-                mock_query.get.side_effect = Exception("Database connection error")
+            with patch("extensions.db.session.get") as mock_db_get:
+                mock_db_get.side_effect = Exception("Database connection error")
 
                 promote_data = PromoteApiTestMixin.create_promote_request_data(1)
                 response = client.post(

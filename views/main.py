@@ -78,7 +78,7 @@ def promote_content():
 
     try:
         # Get the content item
-        content = Content.query.get(content_id)
+        content = db.session.get(Content, content_id)
         if not content:
             return jsonify({"error": "Content not found"}), 404
 

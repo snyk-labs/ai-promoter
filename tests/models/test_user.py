@@ -1,6 +1,6 @@
 import pytest
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 import bcrypt
 
@@ -286,7 +286,7 @@ class TestUserModelIntegration:
 
     def test_user_creation_with_all_fields(self, session, app):
         """Test creating user with all possible fields."""
-        token_expires = datetime.utcnow() + timedelta(hours=1)
+        token_expires = datetime.now() + timedelta(hours=1)
 
         user_data = {
             "email": TestConstants.TEST_EMAIL,

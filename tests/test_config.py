@@ -189,60 +189,101 @@ class TestDatabaseConfiguration(ConfigTestMixin):
     """Test database URL configuration and processing."""
 
     def test_default_sqlite_database_uri(self):
-        """Test default SQLite database URI construction."""
-        config = reload_config_with_env({})
+        """Test default SQLite database URI construction when TESTING is true and no DATABASE_URL is set."""
+        config_module = reload_config_with_env({})  # Sets TESTING=true, no DATABASE_URL
 
-        self.assert_database_uri_contains(config, "sqlite:///")
-        self.assert_database_uri_contains(config, "promoter.db")
-
-    def test_database_url_postgresql(self):
-        """Test PostgreSQL database URL handling."""
-        config = reload_config_with_env(
-            {"DATABASE_URL": "postgresql://user:pass@host:5432/dbname"}
+        # In testing mode, with no DATABASE_URL, Config.SQLALCHEMY_DATABASE_URI should be in-memory sqlite
+        assert_config_value(
+            config_module, "SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:"
         )
 
+        # Also test that _parse_database_url returns None if no URL is provided
+        assert config_module._parse_database_url(None) is None
+        assert (
+            config_module._parse_database_url("") == ""
+        )  # Empty string should pass through
+
+    def test_database_url_postgresql(self):
+        """Test PostgreSQL database URL parsing logic and SQLALCHEMY_DATABASE_URI in test mode."""
+        config_module = reload_config_with_env({})  # To access _parse_database_url
+
+        # Test the _parse_database_url function directly
+        raw_url = "postgresql://user:pass@host:5432/dbname"
+        expected_parsed_url = "postgresql://user:pass@host:5432/dbname"
+        assert config_module._parse_database_url(raw_url) == expected_parsed_url
+
+        # Verify that Config.SQLALCHEMY_DATABASE_URI is sqlite:///:memory: in test mode,
+        # even if DATABASE_URL is set in the environment.
+        config_reloaded_with_db_url = reload_config_with_env({"DATABASE_URL": raw_url})
         assert_config_value(
-            config, "SQLALCHEMY_DATABASE_URI", "postgresql://user:pass@host:5432/dbname"
+            config_reloaded_with_db_url, "SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:"
         )
 
     def test_database_url_heroku_postgres_conversion(self):
-        """Test Heroku-style postgres:// URL gets converted to postgresql://."""
-        config = reload_config_with_env(
-            {"DATABASE_URL": "postgres://user:pass@host:5432/dbname"}
+        """Test Heroku-style postgres:// URL parsing and SQLALCHEMY_DATABASE_URI in test mode."""
+        config_module = reload_config_with_env({})
+
+        # Test the _parse_database_url function for Heroku-style conversion
+        raw_heroku_url = "postgres://user:pass@host:5432/dbname"
+        expected_converted_url = "postgresql://user:pass@host:5432/dbname"
+        assert (
+            config_module._parse_database_url(raw_heroku_url) == expected_converted_url
         )
 
+        # Verify that Config.SQLALCHEMY_DATABASE_URI is sqlite:///:memory: in test mode
+        config_reloaded_with_heroku_url = reload_config_with_env(
+            {"DATABASE_URL": raw_heroku_url}
+        )
         assert_config_value(
-            config, "SQLALCHEMY_DATABASE_URI", "postgresql://user:pass@host:5432/dbname"
+            config_reloaded_with_heroku_url,
+            "SQLALCHEMY_DATABASE_URI",
+            "sqlite:///:memory:",
         )
 
     def test_database_url_custom_sqlite(self):
-        """Test custom SQLite database URL."""
-        config = reload_config_with_env(
-            {"DATABASE_URL": "sqlite:///custom/path/test.db"}
-        )
+        """Test custom SQLite database URL parsing and SQLALCHEMY_DATABASE_URI in test mode."""
+        config_module = reload_config_with_env({})
 
+        # Test the _parse_database_url function for custom SQLite URL
+        raw_sqlite_url = "sqlite:///custom/path/test.db"
+        assert config_module._parse_database_url(raw_sqlite_url) == raw_sqlite_url
+
+        # Verify that Config.SQLALCHEMY_DATABASE_URI is sqlite:///:memory: in test mode
+        config_reloaded_with_sqlite_url = reload_config_with_env(
+            {"DATABASE_URL": raw_sqlite_url}
+        )
         assert_config_value(
-            config, "SQLALCHEMY_DATABASE_URI", "sqlite:///custom/path/test.db"
+            config_reloaded_with_sqlite_url,
+            "SQLALCHEMY_DATABASE_URI",
+            "sqlite:///:memory:",
         )
 
     def test_database_url_edge_cases(self):
-        """Test database URL edge cases."""
-        # Test MySQL URL (should pass through unchanged)
-        config = reload_config_with_env(
-            {"DATABASE_URL": "mysql://user:pass@host:3306/dbname"}
+        """Test database URL edge case parsing and SQLALCHEMY_DATABASE_URI in test mode."""
+        config_module = reload_config_with_env({})
+
+        # Test MySQL URL (should pass through _parse_database_url unchanged)
+        mysql_url = "mysql://user:pass@host:3306/dbname"
+        assert config_module._parse_database_url(mysql_url) == mysql_url
+        config_reloaded_with_mysql_url = reload_config_with_env(
+            {"DATABASE_URL": mysql_url}
         )
         assert_config_value(
-            config, "SQLALCHEMY_DATABASE_URI", "mysql://user:pass@host:3306/dbname"
+            config_reloaded_with_mysql_url,
+            "SQLALCHEMY_DATABASE_URI",
+            "sqlite:///:memory:",
         )
 
-        # Test URL with parameters
-        config = reload_config_with_env(
-            {"DATABASE_URL": "postgresql://user:pass@host:5432/dbname?sslmode=require"}
+        # Test URL with parameters (should pass through _parse_database_url unchanged)
+        url_with_params = "postgresql://user:pass@host:5432/dbname?sslmode=require"
+        assert config_module._parse_database_url(url_with_params) == url_with_params
+        config_reloaded_with_params_url = reload_config_with_env(
+            {"DATABASE_URL": url_with_params}
         )
         assert_config_value(
-            config,
+            config_reloaded_with_params_url,
             "SQLALCHEMY_DATABASE_URI",
-            "postgresql://user:pass@host:5432/dbname?sslmode=require",
+            "sqlite:///:memory:",
         )
 
 
@@ -716,8 +757,22 @@ class TestConfigurationEdgeCases:
         assert "retry_on_timeout=true" in final_url
 
     def test_database_url_with_special_characters(self):
-        """Test database URL with special characters in password."""
-        db_url = "postgresql://user:p@ss%20w0rd@host:5432/db"
-        config = reload_config_with_env({"DATABASE_URL": db_url})
+        """Test database URL parsing with special characters and SQLALCHEMY_DATABASE_URI in test mode."""
+        config_module = reload_config_with_env({})
 
-        assert_config_value(config, "SQLALCHEMY_DATABASE_URI", db_url)
+        # Test _parse_database_url with special characters in password
+        db_url_special_chars = "postgresql://user:p@ss%20w0rd@host:5432/db"
+        assert (
+            config_module._parse_database_url(db_url_special_chars)
+            == db_url_special_chars
+        )
+
+        # Verify that Config.SQLALCHEMY_DATABASE_URI is sqlite:///:memory: in test mode
+        config_reloaded_with_special_url = reload_config_with_env(
+            {"DATABASE_URL": db_url_special_chars}
+        )
+        assert_config_value(
+            config_reloaded_with_special_url,
+            "SQLALCHEMY_DATABASE_URI",
+            "sqlite:///:memory:",
+        )

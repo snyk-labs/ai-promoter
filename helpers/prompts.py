@@ -1,5 +1,5 @@
 from flask import render_template, current_app
-from datetime import datetime
+from datetime import datetime, timezone
 from markupsafe import Markup
 
 # Import the new simplified architecture
@@ -83,7 +83,7 @@ def format_time_context(publish_date):
     if not publish_date:
         return "recently"
 
-    now = datetime.utcnow()
+    now = datetime.now()
 
     diff = now - publish_date
 

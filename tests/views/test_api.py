@@ -1028,7 +1028,7 @@ class TestContentDeleteIntegration:
             assert json_data["message"] == "Content deleted successfully"
 
             # Verify content was actually deleted
-            deleted_content = Content.query.get(content_id)
+            deleted_content = db.session.get(Content, content_id)
             assert deleted_content is None
 
     def test_delete_content_requires_admin(self, app, client):

@@ -4,7 +4,7 @@ Tests for the prompts helper module.
 
 import pytest
 from unittest.mock import Mock, patch
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from helpers.prompts import (
     get_platform_config,
     format_time_context,
@@ -121,55 +121,55 @@ class TestFormatTimeContext:
 
     def test_format_time_context_future(self):
         """Test time context with future date."""
-        future_date = datetime.utcnow() + timedelta(days=1)
+        future_date = datetime.now() + timedelta(days=1)
         result = format_time_context(future_date)
         assert result == "upcoming"
 
     def test_format_time_context_today(self):
         """Test time context with today's date."""
-        today = datetime.utcnow()
+        today = datetime.now()
         result = format_time_context(today)
         assert result == "today"
 
     def test_format_time_context_yesterday(self):
         """Test time context with yesterday's date."""
-        yesterday = datetime.utcnow() - timedelta(days=1)
+        yesterday = datetime.now() - timedelta(days=1)
         result = format_time_context(yesterday)
         assert result == "yesterday"
 
     def test_format_time_context_days_ago(self):
         """Test time context with recent days."""
-        three_days_ago = datetime.utcnow() - timedelta(days=3)
+        three_days_ago = datetime.now() - timedelta(days=3)
         result = format_time_context(three_days_ago)
         assert result == "3 days ago"
 
     def test_format_time_context_weeks_ago(self):
         """Test time context with weeks ago."""
-        two_weeks_ago = datetime.utcnow() - timedelta(days=14)
+        two_weeks_ago = datetime.now() - timedelta(days=14)
         result = format_time_context(two_weeks_ago)
         assert result == "2 weeks ago"
 
-        one_week_ago = datetime.utcnow() - timedelta(days=7)
+        one_week_ago = datetime.now() - timedelta(days=7)
         result = format_time_context(one_week_ago)
         assert result == "1 week ago"
 
     def test_format_time_context_months_ago(self):
         """Test time context with months ago."""
-        two_months_ago = datetime.utcnow() - timedelta(days=60)
+        two_months_ago = datetime.now() - timedelta(days=60)
         result = format_time_context(two_months_ago)
         assert result == "2 months ago"
 
-        one_month_ago = datetime.utcnow() - timedelta(days=30)
+        one_month_ago = datetime.now() - timedelta(days=30)
         result = format_time_context(one_month_ago)
         assert result == "1 month ago"
 
     def test_format_time_context_years_ago(self):
         """Test time context with years ago."""
-        two_years_ago = datetime.utcnow() - timedelta(days=730)
+        two_years_ago = datetime.now() - timedelta(days=730)
         result = format_time_context(two_years_ago)
         assert result == "2 years ago"
 
-        one_year_ago = datetime.utcnow() - timedelta(days=365)
+        one_year_ago = datetime.now() - timedelta(days=365)
         result = format_time_context(one_year_ago)
         assert result == "1 year ago"
 
@@ -241,7 +241,7 @@ class TestRenderUserPrompt:
         content_item = Mock()
         content_item.title = "Test Article"
         content_item.excerpt = "Test excerpt"
-        content_item.publish_date = datetime.utcnow() - timedelta(days=1)
+        content_item.publish_date = datetime.now() - timedelta(days=1)
         content_item.scraped_content = "Test scraped content"
         content_item.get_url_with_all_utms.return_value = (
             "https://example.com/article?utm_source=test"

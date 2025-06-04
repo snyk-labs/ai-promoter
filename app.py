@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 import click
 from urllib.parse import urlparse
 
@@ -100,7 +100,7 @@ def create_app():
     # Add template context processors
     @app.context_processor
     def inject_now():
-        return {"now": datetime.utcnow()}
+        return {"now": datetime.now()}
 
     # Add template helpers
     app.jinja_env.globals.update(

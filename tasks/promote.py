@@ -33,8 +33,8 @@ def generate_content_task(
         Dict with platform results, warnings, and metadata
     """
     try:
-        content = Content.query.get(content_id)
-        user = User.query.get(user_id)
+        content = db.session.get(Content, content_id)
+        user = db.session.get(User, user_id)
 
         if not content:
             logger.error(f"Content with ID {content_id} not found.")
@@ -216,8 +216,8 @@ def post_to_linkedin_task(self, user_id: int, content_id: int, post_content: str
     try:
         from models import User, Content, Share
 
-        user = User.query.get(user_id)
-        content = Content.query.get(content_id)
+        user = db.session.get(User, user_id)
+        content = db.session.get(Content, content_id)
 
         if not user:
             raise ValueError(f"User with ID {user_id} not found.")

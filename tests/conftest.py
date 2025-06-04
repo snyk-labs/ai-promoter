@@ -1,8 +1,4 @@
 import os
-
-# Set TESTING environment variable before any imports to prevent config issues
-os.environ["TESTING"] = "true"
-
 import pytest
 from unittest.mock import patch
 
@@ -13,12 +9,8 @@ from app import create_app, db as _db
 def setup_test_environment():
     """
     Session-scoped fixture that automatically sets up the test environment.
-    This runs before any tests and ensures TESTING environment variable is set.
     """
     yield
-    # Cleanup after all tests
-    if "TESTING" in os.environ:
-        del os.environ["TESTING"]
 
 
 @pytest.fixture(scope="session")
@@ -27,23 +19,25 @@ def app():
     Session-scoped test Flask application.
     Creates a Flask app instance configured for testing.
     """
+    # Create app with test environment
     flask_app = create_app()
 
-    # Force test configuration
-    flask_app.config.update(
-        {
-            "TESTING": True,
-            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-            "WTF_CSRF_ENABLED": False,
-            "LOGIN_DISABLED": True,
-            "SERVER_NAME": "localhost.localdomain",
-            "APPLICATION_ROOT": "/",
-            "PREFERRED_URL_SCHEME": "http",
-            # Disable background tasks during testing
-            "CELERY_TASK_ALWAYS_EAGER": True,
-            "CELERY_TASK_EAGER_PROPAGATES": True,
-        }
-    )
+    # Configure for testing BEFORE any Celery tasks are registered
+    # This ensures the FlaskTask class uses the test configuration
+    test_config = {
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "WTF_CSRF_ENABLED": False,
+        "LOGIN_DISABLED": True,
+        "SERVER_NAME": "localhost.localdomain",
+        "APPLICATION_ROOT": "/",
+        "PREFERRED_URL_SCHEME": "http",
+        # Disable background tasks during testing
+        "CELERY_TASK_ALWAYS_EAGER": True,
+        "CELERY_TASK_EAGER_PROPAGATES": True,
+    }
+
+    flask_app.config.update(test_config)
 
     yield flask_app
 

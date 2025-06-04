@@ -8,6 +8,11 @@ from typing import List, Optional, Tuple
 
 import click
 
+# Set TESTING environment variable if we're running the test command
+# Check if 'test' is in the command line arguments
+if len(sys.argv) >= 2 and sys.argv[1] == "test":
+    os.environ["TESTING"] = "true"
+
 
 class TestRunner:
     """Handles test execution and reporting."""
@@ -204,6 +209,9 @@ def test_command(
         flask test tests/models/      # Run specific directory
         flask test tests/test_user.py # Run specific file
     """
+    # Set TESTING environment variable immediately to ensure test configuration
+    os.environ["TESTING"] = "true"
+
     runner = TestRunner()
 
     # Validate environment

@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional
 from flask import current_app, url_for, session
 import requests
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from .base import BasePlatformManager
 
@@ -222,7 +222,7 @@ class LinkedInManager(BasePlatformManager):
         # Check if token is expired
         if (
             user.linkedin_native_token_expires_at
-            and user.linkedin_native_token_expires_at <= datetime.utcnow()
+            and user.linkedin_native_token_expires_at <= datetime.now()
         ):
             logger.info(
                 f"LinkedIn token for user {user.id} is expired. Attempting refresh."
@@ -272,7 +272,7 @@ class LinkedInManager(BasePlatformManager):
             user.linkedin_native_access_token = new_access_token
             if new_refresh_token:
                 user.linkedin_native_refresh_token = new_refresh_token
-            user.linkedin_native_token_expires_at = datetime.utcnow() + timedelta(
+            user.linkedin_native_token_expires_at = datetime.now() + timedelta(
                 seconds=expires_in
             )
             user.linkedin_authorized = True

@@ -455,14 +455,19 @@ class TestGetLinkedInUserProfile:
 class TestEnsureValidToken:
     """Test ensure_valid_token function."""
 
-    def test_valid_token_not_expired(self):
-        """Test with valid, non-expired token."""
+    def test_valid_token_not_expired(self, app):
+        """Test that valid non-expired token is returned as-is."""
         user = LinkedInNativeTestHelpers.create_mock_user(
             token_expires_at=LinkedInNativeTestHelpers.utc_now_naive()
-            + timedelta(hours=1)
+            + timedelta(days=7)  # Far in the future to avoid refresh
         )
 
-        result = ensure_valid_token(user)
+        with app.app_context():
+            # Mock LinkedIn configuration
+            app.config["LINKEDIN_CLIENT_ID"] = TestData.VALID_CLIENT_ID
+            app.config["LINKEDIN_CLIENT_SECRET"] = TestData.VALID_CLIENT_SECRET
+
+            result = ensure_valid_token(user)
 
         assert result == TestData.VALID_ACCESS_TOKEN
 

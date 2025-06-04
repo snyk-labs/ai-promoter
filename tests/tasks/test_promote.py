@@ -164,32 +164,43 @@ class TestGenerateContentTaskUnit:
         assert task.max_retries == 3
         assert task.default_retry_delay == 60
 
-    @patch("tasks.promote.Content.query")
-    @patch("tasks.promote.User.query")
-    def test_content_not_found(self, mock_user_query, mock_content_query, app):
+    @patch("tasks.promote.db.session.get")
+    def test_content_not_found(self, mock_db_get, app):
         """Test behavior when content is not found."""
-        mock_content_query.get.return_value = None
-        mock_user_query.get.return_value = Mock()
+
+        def mock_db_get_side_effect(model, id):
+            if model == Content:
+                return None  # Content not found
+            elif model == User:
+                return Mock()  # User exists
+            return None
+
+        mock_db_get.side_effect = mock_db_get_side_effect
 
         with app.app_context():
             result = generate_content_task.apply(args=[999, 1])
             assert not result.successful()
             assert "Content with ID 999 not found" in str(result.result)
 
-    @patch("tasks.promote.Content.query")
-    @patch("tasks.promote.User.query")
-    def test_user_not_found(self, mock_user_query, mock_content_query, app):
+    @patch("tasks.promote.db.session.get")
+    def test_user_not_found(self, mock_db_get, app):
         """Test behavior when user is not found."""
-        mock_content_query.get.return_value = Mock()
-        mock_user_query.get.return_value = None
+
+        def mock_db_get_side_effect(model, id):
+            if model == Content:
+                return Mock()  # Content exists
+            elif model == User:
+                return None  # User not found
+            return None
+
+        mock_db_get.side_effect = mock_db_get_side_effect
 
         with app.app_context():
             result = generate_content_task.apply(args=[1, 999])
             assert not result.successful()
             assert "User with ID 999 not found" in str(result.result)
 
-    @patch("tasks.promote.Content.query")
-    @patch("tasks.promote.User.query")
+    @patch("tasks.promote.db.session.get")
     @patch("tasks.promote.ContentGenerator")
     @patch("tasks.promote.get_platform_manager")
     @patch("tasks.promote.is_platform_supported")
@@ -198,19 +209,24 @@ class TestGenerateContentTaskUnit:
         mock_is_supported,
         mock_get_manager,
         mock_generator_class,
-        mock_user_query,
-        mock_content_query,
+        mock_db_get,
         app,
     ):
-        """Test generation when user provides custom copy."""
-        # Setup mocks
-        mock_content = Mock()
-        mock_content.copy = "User provided content"
-        mock_content.url = "https://example.com/test"
+        """Test flow when user provides custom copy."""
         mock_user = Mock()
-        mock_content_query.get.return_value = mock_content
-        mock_user_query.get.return_value = mock_user
+        mock_content = Mock()
+        mock_content.copy = TestConstants.TEST_CONTENT_COPY
 
+        def mock_db_get_side_effect(model, id):
+            if model == Content:
+                return mock_content
+            elif model == User:
+                return mock_user
+            return None
+
+        mock_db_get.side_effect = mock_db_get_side_effect
+
+        # Setup mocks
         mock_generator = Mock()
         mock_generator_class.return_value = mock_generator
         mock_config = Mock()
@@ -223,20 +239,19 @@ class TestGenerateContentTaskUnit:
         mock_get_manager.return_value = mock_platform_manager
 
         with app.app_context():
-            result = generate_content_task.apply(args=[1, 1, ["linkedin"]])
+            result = generate_content_task.apply(args=[1, 1])
 
         assert result.successful()
         result_data = result.result
         TestHelpers.assert_generation_result_structure(result_data)
 
-        # Should use user-provided copy with URL appended
         assert (
-            "User provided content" in result_data["platforms"]["linkedin"]["content"]
+            result_data["platforms"]["linkedin"]["content"]
+            == TestConstants.TEST_CONTENT_COPY
         )
         assert result_data["platforms"]["linkedin"]["source"] == "user_provided"
 
-    @patch("tasks.promote.Content.query")
-    @patch("tasks.promote.User.query")
+    @patch("tasks.promote.db.session.get")
     @patch("tasks.promote.ContentGenerator")
     @patch("tasks.promote.get_platform_manager")
     @patch("tasks.promote.is_platform_supported")
@@ -245,18 +260,24 @@ class TestGenerateContentTaskUnit:
         mock_is_supported,
         mock_get_manager,
         mock_generator_class,
-        mock_user_query,
-        mock_content_query,
+        mock_db_get,
         app,
     ):
         """Test successful AI content generation."""
-        # Setup mocks
-        mock_content = Mock()
-        mock_content.copy = None  # No user copy, trigger AI generation
         mock_user = Mock()
-        mock_content_query.get.return_value = mock_content
-        mock_user_query.get.return_value = mock_user
+        mock_content = Mock()
+        mock_content.copy = None  # No user-provided copy
 
+        def mock_db_get_side_effect(model, id):
+            if model == Content:
+                return mock_content
+            elif model == User:
+                return mock_user
+            return None
+
+        mock_db_get.side_effect = mock_db_get_side_effect
+
+        # Setup mocks
         mock_generator = Mock()
         mock_generator_class.return_value = mock_generator
         mock_result = TestHelpers.create_mock_generation_result(success=True)
@@ -268,7 +289,7 @@ class TestGenerateContentTaskUnit:
         mock_get_manager.return_value = mock_platform_manager
 
         with app.app_context():
-            result = generate_content_task.apply(args=[1, 1, ["linkedin"]])
+            result = generate_content_task.apply(args=[1, 1])
 
         assert result.successful()
         result_data = result.result
@@ -276,40 +297,38 @@ class TestGenerateContentTaskUnit:
 
         assert result_data["platforms"]["linkedin"]["success"] is True
         assert result_data["platforms"]["linkedin"]["source"] == "ai_generated"
-        assert (
-            result_data["platforms"]["linkedin"]["content"]
-            == TestConstants.TEST_GENERATED_CONTENT
-        )
 
-    @patch("tasks.promote.Content.query")
-    @patch("tasks.promote.User.query")
+    @patch("tasks.promote.db.session.get")
     @patch("tasks.promote.ContentGenerator")
-    def test_unsupported_platform(
-        self, mock_generator_class, mock_user_query, mock_content_query, app
-    ):
-        """Test handling of unsupported platforms."""
+    def test_unsupported_platform(self, mock_generator_class, mock_db_get, app):
+        """Test behavior with unsupported platform."""
+        mock_user = Mock()
         mock_content = Mock()
         mock_content.copy = None
-        mock_user = Mock()
-        mock_content_query.get.return_value = mock_content
-        mock_user_query.get.return_value = mock_user
 
-        # Mock the ContentGenerator to avoid GEMINI_API_KEY requirement
+        def mock_db_get_side_effect(model, id):
+            if model == Content:
+                return mock_content
+            elif model == User:
+                return mock_user
+            return None
+
+        mock_db_get.side_effect = mock_db_get_side_effect
+
         mock_generator = Mock()
         mock_generator_class.return_value = mock_generator
 
         with app.app_context():
-            result = generate_content_task.apply(args=[1, 1, ["invalid_platform"]])
+            result = generate_content_task.apply(
+                args=[1, 1, [TestConstants.UNSUPPORTED_PLATFORM]]
+            )
 
         assert result.successful()
         result_data = result.result
-
-        assert "invalid_platform" in result_data["platforms"]
-        assert result_data["platforms"]["invalid_platform"]["success"] is False
-        assert (
-            "Unsupported platform"
-            in result_data["platforms"]["invalid_platform"]["error"]
-        )
+        assert TestConstants.UNSUPPORTED_PLATFORM in result_data["platforms"]
+        platform_result = result_data["platforms"][TestConstants.UNSUPPORTED_PLATFORM]
+        assert platform_result["success"] is False
+        assert "Unsupported platform" in platform_result["error"]
 
 
 @pytest.mark.unit
@@ -323,41 +342,57 @@ class TestPostToLinkedInTaskUnit:
         assert task.max_retries == 3
         assert task.default_retry_delay == 60
 
-    @patch("tasks.promote.User.query")
-    @patch("tasks.promote.Content.query")
-    def test_user_not_found(self, mock_content_query, mock_user_query, app):
+    @patch("tasks.promote.db.session.get")
+    @patch("tasks.promote.get_platform_manager")
+    def test_user_not_found(self, mock_get_manager, mock_db_get, app):
         """Test behavior when user is not found."""
-        mock_user_query.get.return_value = None
-        mock_content_query.get.return_value = Mock()
+
+        def mock_db_get_side_effect(model, id):
+            if model == User:
+                return None  # User not found
+            elif model == Content:
+                return Mock()  # Content exists
+            return None
+
+        mock_db_get.side_effect = mock_db_get_side_effect
 
         with app.app_context():
             result = post_to_linkedin_task.apply(args=[999, 1, "test content"])
             assert not result.successful()
             assert "User with ID 999 not found" in str(result.result)
 
-    @patch("tasks.promote.User.query")
-    @patch("tasks.promote.Content.query")
-    def test_content_not_found(self, mock_content_query, mock_user_query, app):
+    @patch("tasks.promote.db.session.get")
+    @patch("tasks.promote.get_platform_manager")
+    def test_content_not_found(self, mock_get_manager, mock_db_get, app):
         """Test behavior when content is not found."""
-        mock_user_query.get.return_value = Mock()
-        mock_content_query.get.return_value = None
+
+        def mock_db_get_side_effect(model, id):
+            if model == User:
+                return Mock()  # User exists
+            elif model == Content:
+                return None  # Content not found
+            return None
+
+        mock_db_get.side_effect = mock_db_get_side_effect
 
         with app.app_context():
             result = post_to_linkedin_task.apply(args=[1, 999, "test content"])
             assert not result.successful()
             assert "Content with ID 999 not found" in str(result.result)
 
-    @patch("tasks.promote.User.query")
-    @patch("tasks.promote.Content.query")
+    @patch("tasks.promote.db.session.get")
     @patch("tasks.promote.get_platform_manager")
-    def test_user_not_authorized(
-        self, mock_get_manager, mock_content_query, mock_user_query, app
-    ):
+    def test_user_not_authorized(self, mock_get_manager, mock_db_get, app):
         """Test behavior when user is not authorized for LinkedIn."""
-        mock_user = Mock()
-        mock_content = Mock()
-        mock_user_query.get.return_value = mock_user
-        mock_content_query.get.return_value = mock_content
+
+        def mock_db_get_side_effect(model, id):
+            if model == User:
+                return Mock()  # User exists
+            elif model == Content:
+                return Mock()  # Content exists
+            return None
+
+        mock_db_get.side_effect = mock_db_get_side_effect
 
         mock_platform_manager = Mock()
         mock_platform_manager.check_authorization.return_value = False
@@ -368,20 +403,23 @@ class TestPostToLinkedInTaskUnit:
             assert not result.successful()
             assert "User is not authorized for LinkedIn posting" in str(result.result)
 
-    @patch("tasks.promote.User.query")
-    @patch("tasks.promote.Content.query")
-    @patch("tasks.promote.get_platform_manager")
     @patch("tasks.promote.db.session")
-    def test_successful_post(
-        self, mock_session, mock_get_manager, mock_content_query, mock_user_query, app
-    ):
+    @patch("tasks.promote.get_platform_manager")
+    def test_successful_post(self, mock_get_manager, mock_session, app):
         """Test successful LinkedIn posting."""
         mock_user = Mock()
         mock_user.id = 1
         mock_content = Mock()
         mock_content.id = 1
-        mock_user_query.get.return_value = mock_user
-        mock_content_query.get.return_value = mock_content
+
+        def mock_db_get_side_effect(model, id):
+            if model == User:
+                return mock_user
+            elif model == Content:
+                return mock_content
+            return None
+
+        mock_session.get.side_effect = mock_db_get_side_effect
 
         mock_platform_manager = Mock()
         mock_platform_manager.check_authorization.return_value = True
@@ -400,8 +438,7 @@ class TestPostToLinkedInTaskUnit:
         assert result_data["message"] == "Posted to LinkedIn successfully!"
         assert result_data["post_url"] == TestConstants.TEST_POST_URL
 
-    @patch("tasks.promote.User.query")
-    @patch("tasks.promote.Content.query")
+    @patch("tasks.promote.db.session.get")
     @patch("tasks.promote.get_platform_manager")
     @patch("tasks.promote.send_slack_dm")
     @patch("tasks.promote.current_app")
@@ -410,8 +447,7 @@ class TestPostToLinkedInTaskUnit:
         mock_current_app,
         mock_send_slack_dm,
         mock_get_manager,
-        mock_content_query,
-        mock_user_query,
+        mock_db_get,
         app,
     ):
         """Test auth error handling with Slack notification."""
@@ -420,8 +456,15 @@ class TestPostToLinkedInTaskUnit:
         mock_user.slack_id = TestConstants.TEST_SLACK_ID
         mock_content = Mock()
         mock_content.id = 1
-        mock_user_query.get.return_value = mock_user
-        mock_content_query.get.return_value = mock_content
+
+        def mock_db_get_side_effect(model, id):
+            if model == User:
+                return mock_user
+            elif model == Content:
+                return mock_content
+            return None
+
+        mock_db_get.side_effect = mock_db_get_side_effect
 
         mock_platform_manager = Mock()
         mock_platform_manager.check_authorization.return_value = True

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from flask import current_app, render_template
@@ -29,7 +29,7 @@ def initiate_posts():
         if last_run:
             last_run = datetime.fromisoformat(last_run)
         else:
-            last_run = datetime.utcnow() - timedelta(hours=24)
+            last_run = datetime.now() - timedelta(hours=24)
         logger.debug(f"Checking for content since: {last_run}")
 
         new_content = Content.query.filter(Content.created_at > last_run).all()
@@ -72,12 +72,12 @@ def initiate_posts():
                         if current_app.config.get("EMAIL_ENABLED", False):
                             # Prepare email content using the new template
                             # For the template context, ensure `now` and `company_name` are available if used in the template footer.
-                            # `now` can be datetime.utcnow(). `company_name` from current_app.config or a default.
+                            # `now` can be datetime.now(). `company_name` from current_app.config or a default.
                             email_html_content = render_template(
                                 "email/new_content_notification.html",
                                 user=user,
                                 content_summary=content_summary,
-                                now=datetime.utcnow(),  # Pass current time for template
+                                now=datetime.now(),  # Pass current time for template
                                 company_name=current_app.config.get(
                                     "COMPANY_NAME", "Your Company"
                                 ),  # Pass company name
@@ -233,7 +233,7 @@ def initiate_posts():
 
                 final_status_message = f"Processed. Emails sent: {email_count}. Slack messages: {slack_count} (sent in {num_chunks if 'num_chunks' in locals() and num_chunks > 0 and len(content_summary) > 0 else (1 if len(content_summary) == 0 else 0)} part(s))."
 
-        redis_client.set("last_content_notification_run", datetime.utcnow().isoformat())
+        redis_client.set("last_content_notification_run", datetime.now().isoformat())
         logger.info("Updated last_content_notification_run.")
 
     except Exception as e:
@@ -255,7 +255,7 @@ def send_one_off_content_notification(content_id: int):
     logger.info(f"Starting one-off Slack notification for content_id: {content_id}")
 
     try:
-        content = Content.query.get(content_id)
+        content = db.session.get(Content, content_id)
         if not content:
             logger.error(
                 f"Content with ID {content_id} not found. Cannot send notification."

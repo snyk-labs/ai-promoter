@@ -12,7 +12,7 @@ from flask import (
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from extensions import db
 from models import User, Share
@@ -214,8 +214,8 @@ def linkedin_callback():
         if refresh_token:  # Only update if a new one is provided
             current_user.linkedin_native_refresh_token = refresh_token
         if expires_in:
-            current_user.linkedin_native_token_expires_at = (
-                datetime.utcnow() + timedelta(seconds=expires_in)
+            current_user.linkedin_native_token_expires_at = datetime.now() + timedelta(
+                seconds=expires_in
             )
 
         current_user.linkedin_authorized = (
@@ -249,7 +249,7 @@ def check_linkedin_auth():
     is_authenticated = bool(
         current_user.linkedin_native_access_token
         and current_user.linkedin_native_token_expires_at
-        and current_user.linkedin_native_token_expires_at > datetime.utcnow()
+        and current_user.linkedin_native_token_expires_at > datetime.now()
     )
     # Potentially add token refresh logic here if token is about to expire.
     return jsonify(

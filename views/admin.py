@@ -104,7 +104,7 @@ def task_status(task_id):
             # Attempt to get content even on failure, if task.result holds a content_id
             if task.result:
                 try:
-                    updated_content = Content.query.get(task.result)
+                    updated_content = db.session.get(Content, task.result)
                     if updated_content:
                         response_data["content"] = {
                             "id": updated_content.id,
@@ -150,7 +150,7 @@ def task_status(task_id):
             logger.info(f"Task {task_id} SUCCEEDED. Result: {task.result}")
             if task.result:
                 try:
-                    updated_content = Content.query.get(task.result)
+                    updated_content = db.session.get(Content, task.result)
                     if updated_content:
                         response_data["content"] = {
                             "id": updated_content.id,
@@ -194,7 +194,7 @@ def task_status(task_id):
             if task.result and "content" not in response_data:
                 try:
                     retrieved_content_id = int(task.result)
-                    final_content = Content.query.get(retrieved_content_id)
+                    final_content = db.session.get(Content, retrieved_content_id)
                     if final_content:
                         response_data["content"] = {
                             "id": final_content.id,

@@ -10,7 +10,7 @@ from flask import current_app, url_for, session
 import requests
 import logging
 import secrets  # For CSRF token generation
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -178,7 +178,7 @@ def ensure_valid_token(user):
     token_is_valid = False
     if user.linkedin_native_access_token and user.linkedin_native_token_expires_at:
         # Check if token is valid for at least 5 more minutes
-        if datetime.utcnow() < user.linkedin_native_token_expires_at - timedelta(
+        if datetime.now() < user.linkedin_native_token_expires_at - timedelta(
             minutes=5
         ):
             token_is_valid = True
@@ -277,7 +277,7 @@ def refresh_linkedin_token(user):
         user.linkedin_native_access_token = new_access_token
         if new_refresh_token:  # Only update if a new one is provided
             user.linkedin_native_refresh_token = new_refresh_token
-        user.linkedin_native_token_expires_at = datetime.utcnow() + timedelta(
+        user.linkedin_native_token_expires_at = datetime.now() + timedelta(
             seconds=expires_in
         )
         user.linkedin_authorized = True  # Re-affirm authorization

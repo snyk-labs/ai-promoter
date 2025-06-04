@@ -1,7 +1,7 @@
 import pytest
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse, parse_qs
 from models.content import Content
 from models.user import User
@@ -348,8 +348,8 @@ class TestContentModelIntegration:
 
                 TestHelpers.assert_content_fields_match(content, expected_fields)
                 assert content.id is not None
-                assert content.created_at <= datetime.utcnow()
-                assert content.updated_at <= datetime.utcnow()
+                assert content.created_at <= datetime.now()
+                assert content.updated_at <= datetime.now()
                 # Copy should contain the original URL plus UTM campaign from the model
                 assert "utm_campaign=spring_launch" in content.copy
                 assert TestConstants.TEST_URL in content.copy

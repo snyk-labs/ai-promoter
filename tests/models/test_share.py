@@ -1,7 +1,7 @@
 import pytest
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from models.share import Share
 from models.user import User
 from models.content import Content
@@ -50,12 +50,9 @@ class TestHelpers:
 
     @staticmethod
     def assert_valid_datetime(dt, message="DateTime should be valid and recent"):
-        """Assert that datetime is valid and recent."""
-        assert dt is not None, f"{message}: datetime is None"
+        """Assert that a datetime is valid and recent."""
         assert isinstance(dt, datetime), f"{message}: not a datetime object"
-        # Should be within last hour (generous for test timing)
-        # Note: SQLAlchemy returns naive datetime objects, so we use utcnow() for comparison
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)  # Get UTC time as naive
         assert dt >= now - timedelta(hours=1), f"{message}: datetime too old"
         assert dt <= now + timedelta(seconds=5), f"{message}: datetime in future"
 
@@ -419,14 +416,11 @@ class TestShareModelIntegration:
         """Test that created_at is automatically populated."""
         user = TestData.make_user(session)
         content = TestData.make_content(session, user=user)
-
-        # Record time before creation (using naive datetime like SQLAlchemy)
-        before_creation = datetime.utcnow()
-
+        before_creation = datetime.now(timezone.utc).replace(tzinfo=None)
         share = TestData.make_share(session, content, user)
 
         # Record time after creation
-        after_creation = datetime.utcnow()
+        after_creation = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Verify created_at is within expected range
         assert before_creation <= share.created_at <= after_creation

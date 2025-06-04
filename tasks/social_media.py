@@ -42,8 +42,8 @@ def generate_and_post_content(
         from extensions import db
 
         # Get user and content
-        user = User.query.get(user_id)
-        content = Content.query.get(content_id)
+        user = db.session.get(User, user_id)
+        content = db.session.get(Content, content_id)
 
         if not user:
             raise ValueError(f"User with ID {user_id} not found.")
@@ -211,8 +211,8 @@ def post_generated_content(
         from models import User, Content, Share
         from extensions import db
 
-        user = User.query.get(user_id)
-        content = Content.query.get(content_id)
+        user = db.session.get(User, user_id)
+        content = db.session.get(Content, content_id)
 
         if not user:
             raise ValueError(f"User with ID {user_id} not found.")

@@ -260,10 +260,10 @@ class TestNotificationTasksUnit:
         ), "Task should complete successfully when no authorized users found"
         assert "no users with LinkedIn auth to notify" in result.result
 
-    @patch("tasks.notifications.Content.query")
-    def test_send_one_off_notification_content_not_found(self, mock_content_query, app):
+    @patch("tasks.notifications.db.session.get")
+    def test_send_one_off_notification_content_not_found(self, mock_db_get, app):
         """Test one-off notification when content is not found."""
-        mock_content_query.get.return_value = None
+        mock_db_get.return_value = None  # Content not found
 
         with app.app_context():
             result = send_one_off_content_notification.apply(args=[999])

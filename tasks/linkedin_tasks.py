@@ -1,6 +1,6 @@
 from celery import shared_task
 from flask import current_app  # For accessing app config
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 
 from models import User  # Assuming User model is in models.py or models/user.py
@@ -19,7 +19,7 @@ def refresh_expiring_linkedin_tokens():
     Periodically refreshes LinkedIn access tokens that are about to expire.
     Only processes users who have LinkedIn integration enabled and have refresh tokens.
     """
-    now = datetime.utcnow()
+    now = datetime.now()
     expiration_threshold = now + timedelta(
         days=7
     )  # Tokens expiring within the next 7 days

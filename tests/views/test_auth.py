@@ -101,7 +101,7 @@ def create_linkedin_authorized_user(unique_id=None):
     user.linkedin_native_id = f"linkedin_user_{unique_id}"
     user.linkedin_native_access_token = f"mock_access_token_{unique_id}"
     user.linkedin_native_refresh_token = f"mock_refresh_token_{unique_id}"
-    user.linkedin_native_token_expires_at = datetime.utcnow() + timedelta(hours=1)
+    user.linkedin_native_token_expires_at = datetime.now() + timedelta(hours=1)
     return user
 
 

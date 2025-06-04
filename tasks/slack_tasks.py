@@ -26,7 +26,7 @@ def send_slack_invitation_task(self, user_id_from_chain: int):
         f"Starting Slack invitation task for user_id: {user_id_from_chain} (received from chain)"
     )
     try:
-        user = User.query.get(user_id_from_chain)
+        user = db.session.get(User, user_id_from_chain)
         if not user:
             logger.error(
                 f"User with ID {user_id_from_chain} not found. Cannot send Slack invitation."
@@ -83,7 +83,7 @@ def slack_get_user_id(self, user_id: int):
     logger.info(f"Starting task to get Slack ID for user_id: {user_id}")
 
     try:
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             logger.error(f"User with ID {user_id} not found. Cannot get Slack ID.")
             return user_id

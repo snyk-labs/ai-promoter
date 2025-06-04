@@ -208,6 +208,7 @@ def handle_create_content_view_submission(payload: dict):
                 copy=copy,
                 utm_campaign=utm_campaign,
                 submitted_by_id=app_user.id,
+                slack_user_id=slack_user_id,
             )
             message = f"✅ Content for URL <{content.url}|{content.title if content.title != 'Processing...' else content.url}> is being processed (Task ID: {task.id}). I'll notify you when it's ready!"
             send_slack_dm(slack_user_id, message)

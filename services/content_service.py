@@ -18,6 +18,7 @@ def create_content_item(
     copy: str | None,
     utm_campaign: str | None,
     submitted_by_id: int,
+    slack_user_id: str | None = None,
 ):
     """
     Core logic to create a new content item and trigger async scraping.
@@ -28,6 +29,7 @@ def create_content_item(
         copy: Optional copy for the content.
         utm_campaign: Optional UTM campaign for the content.
         submitted_by_id: The ID of the user submitting the content.
+        slack_user_id: Optional Slack ID of the user for completion notification.
 
     Returns:
         A tuple containing the created Content object and the Celery AsyncResult task object.
@@ -58,8 +60,10 @@ def create_content_item(
         db.session.commit()
         logger.info(f"Content object created with ID: {content.id} for URL: {url}")
 
-        task = scrape_content_task.delay(content.id, url)
-        logger.info(f"Scraping task {task.id} initiated for content ID: {content.id}")
+        task = scrape_content_task.delay(content.id, url, slack_user_id)
+        logger.info(
+            f"Scraping task {task.id} initiated for content ID: {content.id}, Slack user: {slack_user_id}"
+        )
 
         return content, task
     except Exception as e:

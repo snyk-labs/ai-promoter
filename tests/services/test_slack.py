@@ -401,6 +401,7 @@ class TestHandleCreateContentViewSubmission:
             copy="Test copy",
             utm_campaign="test_utm",
             submitted_by_id=admin_user.id,
+            slack_user_id="UADMIN123",
         )
         mock_send_dm.assert_called_once()
         dm_text_arg = mock_send_dm.call_args[0][1]  # second argument is message_text

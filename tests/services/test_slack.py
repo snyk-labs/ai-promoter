@@ -1,9 +1,22 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from flask import Flask
+from flask import Flask, current_app
+from slack_sdk.errors import SlackApiError
 
 # Import the service to be tested
 from services.slack import SlackService, slack_service  # Assuming a global instance
+
+# Functions/classes to test from the actual service file
+from services.slack_service import (
+    _get_slack_client,
+    _get_user_and_check_admin,
+    handle_create_content_command,
+    handle_create_content_view_submission,
+    CREATE_CONTENT_MODAL_CALLBACK_ID,
+)
+
+# Potentially needed from other parts of your app for mocking
+from services.content_service import DuplicateContentError  # For error handling tests
 
 
 @pytest.fixture
@@ -165,3 +178,382 @@ class TestSlackServiceUnit:
     #     assert f"Error posting message to Slack channel {channel_id}: test_error" in caplog.text
 
     #     slack_service.client = original_client
+
+
+# Mock User class for _get_user_and_check_admin tests
+class MockUser:
+    def __init__(self, id, email, slack_id, is_admin):
+        self.id = id
+        self.email = email
+        self.slack_id = slack_id
+        self.is_admin = is_admin
+
+
+# Mock Content object for testing return values from create_content_item
+class MockContent:
+    def __init__(self, id, url, title="Processing..."):
+        self.id = id
+        self.url = url
+        self.title = title
+
+
+# Mock Celery Task AsyncResult
+class MockAsyncResult:
+    def __init__(self, id):
+        self.id = id
+
+
+@pytest.mark.unit
+@pytest.mark.slack
+class TestSlackServiceHelpers:
+    """Tests for helper functions in slack_service.py"""
+
+    def test_get_slack_client_success(self, app_context):
+        """Test _get_slack_client returns a WebClient with a token."""
+        with patch("services.slack_service.WebClient") as MockWebClient:
+            client = _get_slack_client()
+            MockWebClient.assert_called_once_with(token="test_token")
+            assert client is not None
+
+    def test_get_slack_client_no_token(self, app_context):
+        """Test _get_slack_client raises ValueError if token is missing."""
+        current_app.config["SLACK_BOT_TOKEN"] = None
+        with pytest.raises(ValueError, match="SLACK_BOT_TOKEN is not configured."):
+            _get_slack_client()
+
+    @patch("services.slack_service.User.query")
+    def test_get_user_and_check_admin_is_admin(self, mock_user_query, app_context):
+        """Test _get_user_and_check_admin returns user if admin."""
+        admin_user = MockUser(
+            id=1, email="admin@example.com", slack_id="UADMIN123", is_admin=True
+        )
+        mock_user_query.filter_by.return_value.first.return_value = admin_user
+
+        user = _get_user_and_check_admin("UADMIN123")
+        assert user == admin_user
+        mock_user_query.filter_by.assert_called_once_with(slack_id="UADMIN123")
+
+    @patch("services.slack_service.User.query")
+    def test_get_user_and_check_admin_not_admin(self, mock_user_query, app_context):
+        """Test _get_user_and_check_admin returns None if not admin."""
+        non_admin_user = MockUser(
+            id=2, email="user@example.com", slack_id="UUSER456", is_admin=False
+        )
+        mock_user_query.filter_by.return_value.first.return_value = non_admin_user
+
+        user = _get_user_and_check_admin("UUSER456")
+        assert user is None
+
+    @patch("services.slack_service.User.query")
+    def test_get_user_and_check_admin_no_user_found(self, mock_user_query, app_context):
+        """Test _get_user_and_check_admin returns None if no user found."""
+        mock_user_query.filter_by.return_value.first.return_value = None
+        user = _get_user_and_check_admin("UUNKNOWN")
+        assert user is None
+
+    def test_get_user_and_check_admin_no_slack_id(self, app_context):
+        """Test _get_user_and_check_admin returns None if no slack_id provided."""
+        user = _get_user_and_check_admin(None)
+        assert user is None
+
+
+@pytest.mark.unit
+@pytest.mark.slack
+class TestHandleCreateContentCommand:
+    """Tests for handle_create_content_command in slack_service.py"""
+
+    @patch("services.slack_service._get_user_and_check_admin")
+    @patch("services.slack_service._get_slack_client")
+    def test_success_opens_modal(self, mock_get_client, mock_check_admin, app_context):
+        mock_slack_web_client = MagicMock()
+        mock_get_client.return_value = mock_slack_web_client
+        admin_user = MockUser(
+            id=1, email="admin@example.com", slack_id="UADMIN123", is_admin=True
+        )
+        mock_check_admin.return_value = admin_user
+
+        payload = {
+            "trigger_id": "test_trigger",
+            "user_id": "UADMIN123",
+            "channel_id": "C123",
+        }
+        handle_create_content_command(payload)
+
+        mock_check_admin.assert_called_once_with("UADMIN123")
+        mock_slack_web_client.views_open.assert_called_once()
+        args, kwargs = mock_slack_web_client.views_open.call_args
+        assert kwargs["trigger_id"] == "test_trigger"
+        assert kwargs["view"]["type"] == "modal"
+        assert kwargs["view"]["callback_id"] == CREATE_CONTENT_MODAL_CALLBACK_ID
+
+    @patch("services.slack_service._get_user_and_check_admin")
+    @patch("services.slack_service._get_slack_client")
+    def test_non_admin_gets_ephemeral_message(
+        self, mock_get_client, mock_check_admin, app_context
+    ):
+        mock_slack_web_client = MagicMock()
+        mock_get_client.return_value = mock_slack_web_client
+        mock_check_admin.return_value = None  # Non-admin
+
+        payload = {
+            "trigger_id": "test_trigger",
+            "user_id": "UUSER456",
+            "channel_id": "C123",
+        }
+        handle_create_content_command(payload)
+
+        mock_check_admin.assert_called_once_with("UUSER456")
+        mock_slack_web_client.chat_postEphemeral.assert_called_once_with(
+            channel="C123",
+            user="UUSER456",
+            text="Sorry, you don't have permission to use this command.",
+        )
+        mock_slack_web_client.views_open.assert_not_called()
+
+    @patch(
+        "services.slack_service._get_slack_client",
+        side_effect=ValueError("Config error"),
+    )
+    def test_slack_client_value_error(self, mock_get_client, app_context, caplog):
+        payload = {
+            "trigger_id": "test_trigger",
+            "user_id": "UADMIN123",
+            "channel_id": "C123",
+        }
+        handle_create_content_command(payload)
+        assert (
+            "Configuration error handling /create-content: Config error" in caplog.text
+        )
+
+    @patch("services.slack_service._get_user_and_check_admin")
+    @patch("services.slack_service._get_slack_client")
+    def test_slack_api_error_on_views_open(
+        self, mock_get_client, mock_check_admin, app_context, caplog
+    ):
+        mock_slack_web_client = MagicMock()
+        mock_slack_web_client.views_open.side_effect = SlackApiError(
+            "API Error", {"ok": False, "error": "test_api_error"}
+        )
+        mock_get_client.return_value = mock_slack_web_client
+        admin_user = MockUser(
+            id=1, email="admin@example.com", slack_id="UADMIN123", is_admin=True
+        )
+        mock_check_admin.return_value = admin_user
+
+        payload = {
+            "trigger_id": "test_trigger",
+            "user_id": "UADMIN123",
+            "channel_id": "C123",
+        }
+        handle_create_content_command(payload)
+        assert "Slack API error handling /create-content: test_api_error" in caplog.text
+
+
+@pytest.mark.unit
+@pytest.mark.slack
+class TestHandleCreateContentViewSubmission:
+    """Tests for handle_create_content_view_submission in slack_service.py"""
+
+    @patch("services.slack_service.send_slack_dm")
+    @patch("services.slack_service.create_content_item")
+    @patch("services.slack_service._get_user_and_check_admin")
+    @patch("services.slack_service._get_slack_client")
+    def test_success_creates_content_sends_dm(
+        self,
+        mock_get_client,
+        mock_check_admin,
+        mock_create_item,
+        mock_send_dm,
+        app_context,
+    ):
+        mock_slack_web_client = MagicMock()
+        mock_get_client.return_value = mock_slack_web_client
+        admin_user = MockUser(
+            id=1, email="admin@example.com", slack_id="UADMIN123", is_admin=True
+        )
+        mock_check_admin.return_value = admin_user
+
+        mock_content_obj = MockContent(id=101, url="http://new.url")
+        mock_task_obj = MockAsyncResult(id="task_123")
+        mock_create_item.return_value = (mock_content_obj, mock_task_obj)
+
+        payload = {
+            "user": {"id": "UADMIN123"},
+            "view": {
+                "state": {
+                    "values": {
+                        "url_block": {"content_url": {"value": "http://new.url"}},
+                        "context_block": {"content_context": {"value": "Test context"}},
+                        "copy_block": {"content_copy": {"value": "Test copy"}},
+                        "utm_campaign_block": {
+                            "content_utm_campaign": {"value": "test_utm"}
+                        },
+                    }
+                }
+            },
+        }
+        response = handle_create_content_view_submission(payload)
+
+        mock_check_admin.assert_called_once_with("UADMIN123")
+        mock_create_item.assert_called_once_with(
+            url="http://new.url",
+            context="Test context",
+            copy="Test copy",
+            utm_campaign="test_utm",
+            submitted_by_id=admin_user.id,
+        )
+        mock_send_dm.assert_called_once()
+        dm_text_arg = mock_send_dm.call_args[0][1]  # second argument is message_text
+        assert (
+            "Content for URL <http://new.url|http://new.url> is being processed"
+            in dm_text_arg
+        )
+        assert "Task ID: task_123" in dm_text_arg
+        assert response is None  # Default response closes modal
+
+    @patch("services.slack_service.send_slack_dm")
+    @patch("services.slack_service.create_content_item")
+    @patch("services.slack_service._get_user_and_check_admin")
+    @patch("services.slack_service._get_slack_client")
+    def test_missing_url_returns_validation_error(
+        self,
+        mock_get_client,
+        mock_check_admin,
+        mock_create_item,
+        mock_send_dm,
+        app_context,
+    ):
+        mock_slack_web_client = MagicMock()
+        mock_get_client.return_value = mock_slack_web_client
+        admin_user = MockUser(
+            id=1, email="admin@example.com", slack_id="UADMIN123", is_admin=True
+        )
+        mock_check_admin.return_value = admin_user
+
+        payload = {  # Missing URL
+            "user": {"id": "UADMIN123"},
+            "view": {"state": {"values": {}}},
+        }
+        response = handle_create_content_view_submission(payload)
+
+        assert response == {
+            "response_action": "errors",
+            "errors": {
+                "url_block": "URL is a required field. Please enter a valid URL."
+            },
+        }
+        mock_create_item.assert_not_called()
+        mock_send_dm.assert_not_called()
+
+    @patch("services.slack_service.send_slack_dm")
+    @patch(
+        "services.slack_service.create_content_item",
+        side_effect=DuplicateContentError("URL exists"),
+    )
+    @patch("services.slack_service._get_user_and_check_admin")
+    @patch("services.slack_service._get_slack_client")
+    def test_duplicate_content_error_sends_dm(
+        self,
+        mock_get_client,
+        mock_check_admin,
+        mock_create_item,
+        mock_send_dm,
+        app_context,
+    ):
+        mock_slack_web_client = MagicMock()
+        mock_get_client.return_value = mock_slack_web_client
+        admin_user = MockUser(
+            id=1, email="admin@example.com", slack_id="UADMIN123", is_admin=True
+        )
+        mock_check_admin.return_value = admin_user
+
+        payload = {
+            "user": {"id": "UADMIN123"},
+            "view": {
+                "state": {
+                    "values": {
+                        "url_block": {"content_url": {"value": "http://duplicate.url"}}
+                    }
+                }
+            },
+        }
+        response = handle_create_content_view_submission(payload)
+
+        mock_send_dm.assert_called_once()
+        dm_text_arg = mock_send_dm.call_args[0][1]
+        assert (
+            "This URL has already been added: <http://duplicate.url|http://duplicate.url>"
+            in dm_text_arg
+        )
+        assert response is None
+
+    @patch("services.slack_service.send_slack_dm")
+    @patch(
+        "services.slack_service.create_content_item", side_effect=Exception("DB error")
+    )
+    @patch("services.slack_service._get_user_and_check_admin")
+    @patch("services.slack_service._get_slack_client")
+    def test_general_exception_on_create_sends_dm(
+        self,
+        mock_get_client,
+        mock_check_admin,
+        mock_create_item,
+        mock_send_dm,
+        app_context,
+    ):
+        mock_slack_web_client = MagicMock()
+        mock_get_client.return_value = mock_slack_web_client
+        admin_user = MockUser(
+            id=1, email="admin@example.com", slack_id="UADMIN123", is_admin=True
+        )
+        mock_check_admin.return_value = admin_user
+
+        payload = {
+            "user": {"id": "UADMIN123"},
+            "view": {
+                "state": {
+                    "values": {
+                        "url_block": {"content_url": {"value": "http://error.url"}}
+                    }
+                }
+            },
+        }
+        response = handle_create_content_view_submission(payload)
+
+        mock_send_dm.assert_called_once()
+        dm_text_arg = mock_send_dm.call_args[0][1]
+        assert (
+            "Sorry, there was an error creating content for <http://error.url|http://error.url>"
+            in dm_text_arg
+        )
+        assert "Error: DB error" in dm_text_arg
+        assert response is None
+
+    @patch("services.slack_service._get_user_and_check_admin")
+    @patch("services.slack_service._get_slack_client")
+    def test_submission_by_non_admin_logs_clears_modal(
+        self, mock_get_client, mock_check_admin, app_context, caplog
+    ):
+        mock_slack_web_client = (
+            MagicMock()
+        )  # Not strictly needed as no client calls if admin check fails early
+        mock_get_client.return_value = mock_slack_web_client
+        mock_check_admin.return_value = None  # Simulate non-admin / user not found
+
+        payload = {
+            "user": {"id": "UNOTADMIN"},
+            "view": {
+                "state": {
+                    "values": {
+                        "url_block": {"content_url": {"value": "http://sneaky.url"}}
+                    }
+                }
+            },
+        }
+        response = handle_create_content_view_submission(payload)
+
+        assert (
+            "Content creation modal submitted by non-admin or unknown Slack ID: UNOTADMIN"
+            in caplog.text
+        )
+        assert response == {"response_action": "clear"}

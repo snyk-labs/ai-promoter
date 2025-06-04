@@ -4,7 +4,7 @@ from flask_login import current_user, login_required
 from models.content import Content
 from extensions import db
 from tasks.content import scrape_content_task
-from celery.result import AsyncResult
+from services.content_service import create_content_item, DuplicateContentError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -43,24 +43,14 @@ def create_content():
     if not url:
         return jsonify(error="URL is required."), 400
 
-    existing_content = Content.query.filter_by(url=url).first()
-    if existing_content:
-        return jsonify(error="This URL has already been added as content."), 409
-
     try:
-        content = Content(
+        content, task = create_content_item(
             url=url,
-            title="Processing...",  # Initial title
             context=context,
-            copy=copy,  # The model will automatically process this with UTM parameters
+            copy=copy,
             utm_campaign=utm_campaign,
             submitted_by_id=current_user.id,
         )
-        db.session.add(content)
-        db.session.commit()
-
-        task = scrape_content_task.delay(content.id, url)
-
         return (
             jsonify(
                 task_id=task.id,
@@ -69,9 +59,11 @@ def create_content():
             ),
             202,
         )
+    except DuplicateContentError as e:
+        logger.warning(f"Duplicate content error via admin panel: {e}")
+        return jsonify(error=str(e)), 409
     except Exception as e:
-        logger.exception("Unexpected error while adding content")
-        db.session.rollback()
+        logger.exception("Unexpected error while adding content via admin panel")
         return jsonify(error=f"Error creating content: {str(e)}"), 500
 
 

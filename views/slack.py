@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
-import os
+import json
+from helpers.slack import verify_slack_request
 
 bp = Blueprint("slack", __name__, url_prefix="/slack")
 
@@ -9,18 +10,20 @@ def slack_events():
     """
     Handles incoming Slack events.
     """
-    try:
-        data = request.json
-    except Exception as e:
-        current_app.logger.error(f"Error parsing JSON: {e}")
-        return jsonify({"error": "Invalid JSON payload"}), 400
+    raw_body_bytes = request.get_data()
 
-    if not data:
-        current_app.logger.warning("Received empty JSON data in /slack/events")
-        return jsonify({"error": "No data provided"}), 400
+    try:
+        data = json.loads(raw_body_bytes.decode("utf-8"))
+    except json.JSONDecodeError as e:
+        current_app.logger.error(f"Error parsing JSON from raw body: {e}")
+        return jsonify({"error": "Invalid JSON payload"}), 400
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error processing request body: {e}")
+        return jsonify({"error": "Error processing request body"}), 400
 
     event_type = data.get("type")
 
+    # Handle URL verification first, as it does not require signature verification
     if event_type == "url_verification":
         challenge = data.get("challenge")
         current_app.logger.info(
@@ -28,38 +31,41 @@ def slack_events():
         )
         return jsonify({"challenge": challenge})
 
-    # TODO: Implement Slack request signature verification for security.
-    # This is crucial for ensuring requests are genuinely from Slack.
-    # Example placeholder:
-    # slack_signing_secret = current_app.config.get('SLACK_SIGNING_SECRET')
-    # if not verify_slack_request(request.get_data(as_text=True),
-    #                             request.headers.get('X-Slack-Request-Timestamp'),
-    #                             request.headers.get('X-Slack-Signature'),
-    #                             slack_signing_secret):
-    #     current_app.logger.warning("Slack request verification failed.")
-    #     return jsonify({"error": "Request verification failed"}), 403
+    # For all other event types, verify the signature first
+    slack_signing_secret = current_app.config.get("SLACK_SIGNING_SECRET")
+    timestamp = request.headers.get("X-Slack-Request-Timestamp")
+    signature = request.headers.get("X-Slack-Signature")
 
-    current_app.logger.info(f"Received Slack event of type '{event_type}': {data}")
+    if not slack_signing_secret:
+        current_app.logger.error(
+            "CRITICAL: SLACK_SIGNING_SECRET is not configured. Rejecting request."
+        )
+        return (
+            jsonify({"error": "Server configuration error for Slack integration"}),
+            500,
+        )  # Fail closed
+    elif not verify_slack_request(
+        raw_body_bytes, timestamp, signature, slack_signing_secret
+    ):
+        current_app.logger.warning(
+            "Slack request verification failed. Rejecting request."
+        )
+        return jsonify({"error": "Request verification failed"}), 403
+    # If secret exists and verification passed, we can proceed
+
+    # Now that signature (if applicable) is verified, check if the data payload is empty
+    # This handles cases like an empty JSON object {} which is valid JSON but might not be a valid event
+    if not data:
+        current_app.logger.warning(
+            "Received empty JSON data (e.g., '{}') after signature verification."
+        )
+        return jsonify({"error": "No data provided or malformed JSON"}), 400
+
+    current_app.logger.info(
+        f"Received and verified Slack event of type '{event_type}': {data}"
+    )
 
     # Delegate to the SlackService for processing
-    # We'll import and call the service here once it's more fleshed out.
-    # For now, we're just acknowledging the event.
     # from services.slack import slack_service
     # slack_service.handle_event(data)
-
     return jsonify({"status": "ok"}), 200
-
-
-# Example helper for signature verification (to be completed and placed appropriately)
-# def verify_slack_request(body, timestamp, signature, signing_secret):
-#     import hmac
-#     import hashlib
-#     if abs(time.time() - int(timestamp)) > 60 * 5: # 5 minutes
-#         return False # Timestamp too old
-#     sig_basestring = f"v0:{timestamp}:{body}".encode('utf-8')
-#     my_signature = 'v0=' + hmac.new(
-#         signing_secret.encode('utf-8'),
-#         sig_basestring,
-#         hashlib.sha256
-#     ).hexdigest()
-#     return hmac.compare_digest(my_signature, signature)

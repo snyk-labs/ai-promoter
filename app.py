@@ -44,6 +44,7 @@ from views.api import bp as api_bp
 from views.auth import bp as auth_bp
 from views.okta_auth import bp as okta_auth_bp
 from views.admin import bp as admin_bp
+from views.slack import bp as slack_bp
 
 # Our Judoscale global instance
 judoscale = Judoscale()
@@ -159,6 +160,7 @@ def create_app():
     app.register_blueprint(api_bp, url_prefix="/api")  # API routes
     app.register_blueprint(auth_bp, url_prefix="/auth")  # Auth routes
     app.register_blueprint(admin_bp, url_prefix="/admin")  # Admin routes
+    app.register_blueprint(slack_bp)
 
     # Register Okta blueprint if enabled
     if app.config["OKTA_ENABLED"]:
